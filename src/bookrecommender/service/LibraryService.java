@@ -46,4 +46,6 @@ public class LibraryService {
         librerieRepo.upsert(clean);
         return true;
     }
+
+    //TODO: creare anche un'eliminazione di libreria e il relativo dialog di visualizzazione di quest'ultime
 }
