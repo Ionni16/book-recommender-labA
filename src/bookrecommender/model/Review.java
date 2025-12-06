@@ -123,7 +123,7 @@ public class Review {
      */
     public String getCommento() { return commento;}
 
-    // --------------- HELPERS ---------------
+    // --------------- METODO PUBBLICO ---------------
     /**
      * Calcola il voto finale a partire dai voti dei cinque criteri,
      * come media aritmetica arrotondata all'intero più vicino.

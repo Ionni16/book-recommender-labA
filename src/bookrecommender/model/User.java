@@ -96,7 +96,7 @@ public class User {
     public String getEmail() { return email;}
 
 
-    // --------------- HELPERS ---------------
+    // --------------- METODI PUBBLICI ---------------
     /**
      * Confronta questo utente con un altro oggetto per verificarne
      * l'uguaglianza. Due utenti sono considerati uguali se hanno lo stesso

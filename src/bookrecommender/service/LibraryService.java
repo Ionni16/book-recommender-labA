@@ -12,10 +12,12 @@ public class LibraryService {
     private final LibrerieRepository librerieRepo;
     private final LibriRepository libriRepo; // per validare idLibro esistenti
 
+
     public LibraryService(Path librerieFile, LibriRepository libriRepo) {
         this.librerieRepo = new LibrerieRepository(librerieFile);
         this.libriRepo = libriRepo;
     }
+
 
     /**
      * Restituisce SOLO le librerie dell'utente indicato.
@@ -23,6 +25,7 @@ public class LibraryService {
     public List<Library> listUserLibraries(String userid) throws IOException {
         return librerieRepo.findByUserid(userid);
     }
+
 
     /**
      * Crea o aggiorna una libreria dell'utente.

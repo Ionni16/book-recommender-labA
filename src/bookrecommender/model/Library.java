@@ -61,6 +61,16 @@ public class Library {
     public String getNome() { return nome; }
 
 
+    /**
+     * Restituisce il valore di hash della libreria, calcolato a partire
+     * dall'identificatore dell'utente e dal nome della libreria.
+     *
+     * @return il valore di hash della libreria
+     */
+    @Override
+    public int hashCode() { return Objects.hash(userid, nome); }
+
+
     // --------------- SETTERS ---------------
     /**
      * Restituisce una copia dell'insieme degli identificatori dei libri
@@ -100,15 +110,4 @@ public class Library {
         return Objects.equals(userid, other.userid) &&
                Objects.equals(nome, other.nome);
     }
-    // -------------------------------
-
-
-    /**
-     * Restituisce il valore di hash della libreria, calcolato a partire
-     * dall'identificatore dell'utente e dal nome della libreria.
-     *
-     * @return il valore di hash della libreria
-     */
-    @Override
-    public int hashCode() { return Objects.hash(userid, nome); }
 }

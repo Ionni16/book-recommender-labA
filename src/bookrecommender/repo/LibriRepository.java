@@ -86,7 +86,7 @@ public class LibriRepository {
         return books.size();
     }
 
-    // --------------- HELPERS pubblici ---------------
+    // --------------- METODI PUBBLICI ---------------
     /**
      * Salva l'elenco corrente di libri nel file di persistenza
      * <code>Libri.dati</code>.
@@ -163,7 +163,7 @@ public class LibriRepository {
     }
 
 
-    // --------------- HELPERS privati ---------------
+    // --------------- HELPERS ---------------
     /**
      * Legge i libri dal file di persistenza <code>Libri.dati</code>.
      * <p>

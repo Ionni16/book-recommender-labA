@@ -40,7 +40,7 @@ public class ConsigliRepository {
     public ConsigliRepository(Path file) { this.file = file; }
 
 
-    // --------------- HELPERS ---------------
+    // --------------- GETTER ---------------
     /**
      * Restituisce tutte le {@link Suggestion} presenti nel file che
      * si riferiscono al libro con l'identificatore specificato.
@@ -87,6 +87,7 @@ public class ConsigliRepository {
     }
 
 
+    // --------------- METODO PUBBLICO ---------------
     /**
      * Aggiunge in coda al file una nuova riga corrispondente alla
      * {@link Suggestion} specificata.

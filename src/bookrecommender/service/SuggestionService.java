@@ -36,4 +36,6 @@ public class SuggestionService {
         consRepo.append(new Suggestion(s.getUserid(), s.getBookId(), list));
         return true;
     }
+
+    //TODO: rimuovi suggerimento.
 }

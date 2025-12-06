@@ -24,6 +24,11 @@ public class AuthService {
         return true;
     }
 
+    //TODO: Elimina utente.
+
+
+    //TODO: Modifica utente.
+
     public boolean login(String userid, String passwordPlain) throws IOException {
         Optional<User> ou = utentiRepo.findByUserid(userid);
         if (ou.isEmpty()) return false;

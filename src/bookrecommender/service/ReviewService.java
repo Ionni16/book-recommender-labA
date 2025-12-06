@@ -46,5 +46,9 @@ public class ReviewService {
         return true;
     }
 
+    //TODO: Modifica valutazione.
+
+    //TODO: Elimina valutazione.
+
     private static boolean range15(int x) { return x >= 1 && x <= 5; }
 }
