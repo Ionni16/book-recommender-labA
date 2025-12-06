@@ -106,7 +106,7 @@ public class Book {
     public String getCategoria() { return categoria; }
 
 
-    // --------------- UTILITIES ---------------
+    // --------------- HELPERS ---------------
     /**
      * Confronta questo libro con un altro oggetto per verificarne
      * l'uguaglianza. Due libri sono considerati uguali se hanno lo stesso
