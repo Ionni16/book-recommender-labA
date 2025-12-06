@@ -13,7 +13,7 @@ public class BookRecommender {
      * Autori: Ionut Puiu -753296- Sede: VA
      *         
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         Scanner in = new Scanner(System.in);
         Path dataDir = Path.of("data");
 
@@ -92,6 +92,7 @@ public class BookRecommender {
     }
 
     // === Registrazione/Login ===
+    // === Registrazione/Login ===
     private static void doRegister(Scanner in, AuthService auth) {
         System.out.println("=== Registrazione ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();
@@ -101,15 +102,20 @@ public class BookRecommender {
         System.out.print("Codice Fiscale: "); String cf = in.nextLine().trim();
         System.out.print("Email: "); String email = in.nextLine().trim();
 
-        String hash = AuthService.sha256(pass);
-        User u = new User(userid, hash, nome, cognome, cf, email);
         try {
+            String hash = AuthService.sha256(pass);  // <-- adesso è dentro il try
+            User u = new User(userid, hash, nome, cognome, cf, email);
+
             boolean ok = auth.registrazione(u);
-            System.out.println(ok ? "Registrazione completata." : "Registrazione fallita (userid già esistente?).");
+            System.out.println(ok
+                    ? "Registrazione completata."
+                    : "Registrazione fallita (userid già esistente?).");
+
         } catch (Exception e) {
             System.out.println("Errore: " + e.getMessage());
         }
     }
+
     private static void doLogin(Scanner in, AuthService auth) {
         System.out.println("=== Login ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();

@@ -1,41 +1,149 @@
 package bookrecommender.service;
 
-import bookrecommender.model.Library;
 import bookrecommender.model.Suggestion;
-import bookrecommender.repo.ConsigliRepository;
-import bookrecommender.repo.LibrerieRepository;
 
-import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * Gestione dei suggerimenti di libri correlati.
+ * File: ConsigliLibri.dati
+ * Formato: userid;bookId;idSug1,idSug2,...
+ */
 public class SuggestionService {
-    private final ConsigliRepository consRepo;
-    private final LibrerieRepository librRepo;
 
-    public SuggestionService(Path consigliFile, Path librerieFile) {
-        this.consRepo = new ConsigliRepository(consigliFile);
-        this.librRepo = new LibrerieRepository(librerieFile);
+    private final Path fileConsigli;
+    private final Path fileLibrerie;
+
+    public SuggestionService(Path fileConsigli, Path fileLibrerie) {
+        this.fileConsigli = fileConsigli;
+        this.fileLibrerie = fileLibrerie;
     }
 
-    public boolean inserisciSuggerimento(Suggestion s) throws IOException {
-        // Max 3, no duplicati, niente self-suggestion, e tutti nella libreria dell’utente
-        List<Integer> list = new ArrayList<>(s.getSuggeriti());
-        // rimuovo duplicati preservando ordine
-        LinkedHashSet<Integer> set = new LinkedHashSet<>(list);
-        list = new ArrayList<>(set);
-        if (list.size() > 3) list = list.subList(0,3);
-        list.removeIf(id -> id == s.getBookId());
-        if (list.isEmpty()) return false;
+    // ============ API PRINCIPALE ============
 
-        // controlla appartenenza alla libreria dell’utente
-        Set<Integer> owned = new HashSet<>();
-        for (Library L : librRepo.findByUserid(s.getUserid())) owned.addAll(L.getBookIds());
-        for (Integer id : list) if (!owned.contains(id)) return false;
+    /**
+     * Inserisce un nuovo suggerimento.
+     * Requisiti (come da specifiche progetto):
+     *  - max 3 libri suggeriti
+     *  - tutti diversi tra loro e diversi dal libro base
+     *  - tutti presenti nelle librerie dell'utente
+     */
+    public boolean inserisciSuggerimento(Suggestion s) throws Exception {
+        List<Integer> ids = new ArrayList<>(s.getSuggeriti());
+        // filtra duplicati e self
+        ids = ids.stream().distinct()
+                .filter(id -> id != s.getBookId())
+                .collect(Collectors.toList());
+        if (ids.isEmpty() || ids.size() > 3) return false;
 
-        consRepo.append(new Suggestion(s.getUserid(), s.getBookId(), list));
+        // controlla che ogni libro suggerito sia in almeno una libreria dell'utente
+        for (int id : ids) {
+            if (!utenteHaLibroInLibreria(s.getUserid(), id)) {
+                return false;
+            }
+        }
+
+        // ok: salviamo (sovrascrivendo eventuale suggerimento precedente per lo stesso libro base)
+        List<Suggestion> all = loadAll();
+        List<Suggestion> nuovo = new ArrayList<>();
+        for (Suggestion old : all) {
+            if (old.getUserid().equals(s.getUserid())
+                    && old.getBookId() == s.getBookId()) {
+                // sovrascrivo
+                continue;
+            }
+            nuovo.add(old);
+        }
+        nuovo.add(new Suggestion(s.getUserid(), s.getBookId(), ids));
+        saveAll(nuovo);
         return true;
     }
 
-    //TODO: rimuovi suggerimento.
+    // ============ METODI PER LA GUI ============
+
+    /** Tutti i suggerimenti fatti da un utente. */
+    public List<Suggestion> listByUser(String userid) throws Exception {
+        return loadAll().stream()
+                .filter(s -> s.getUserid().equals(userid))
+                .collect(Collectors.toList());
+    }
+
+    /** Elimina un suggerimento dell'utente per un certo libro base. */
+    public boolean deleteSuggestion(String userid, int bookId) throws Exception {
+        List<Suggestion> all = loadAll();
+        boolean removed = all.removeIf(s ->
+                s.getUserid().equals(userid) && s.getBookId() == bookId);
+        if (removed) saveAll(all);
+        return removed;
+    }
+
+    // ============ IO SU FILE ============
+
+    private List<Suggestion> loadAll() throws Exception {
+        List<Suggestion> list = new ArrayList<>();
+        if (!Files.exists(fileConsigli)) return list;
+
+        try (BufferedReader br = Files.newBufferedReader(fileConsigli)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.isBlank()) continue;
+                String[] c = line.split(";", -1);
+                if (c.length < 3) continue;
+                String userid = c[0];
+                int bookId = parseIntSafe(c[1]);
+                List<Integer> ids = new ArrayList<>();
+                if (!c[2].isBlank()) {
+                    for (String p : c[2].split(",")) {
+                        try { ids.add(Integer.parseInt(p.trim())); }
+                        catch (NumberFormatException ignored) {}
+                    }
+                }
+                list.add(new Suggestion(userid, bookId, ids));
+            }
+        }
+        return list;
+    }
+
+    private void saveAll(List<Suggestion> list) throws Exception {
+        Files.createDirectories(fileConsigli.getParent());
+        try (BufferedWriter bw = Files.newBufferedWriter(fileConsigli)) {
+            for (Suggestion s : list) {
+                String ids = s.getSuggeriti().stream()
+                        .map(String::valueOf)
+                        .collect(Collectors.joining(","));
+                bw.write(s.getUserid() + ";" + s.getBookId() + ";" + ids);
+                bw.newLine();
+            }
+        }
+    }
+
+    private int parseIntSafe(String s) {
+        try { return Integer.parseInt(s.trim()); }
+        catch (Exception e) { return 0; }
+    }
+
+    // ============ controllo libreria ============
+
+    private boolean utenteHaLibroInLibreria(String userid, int bookId) throws Exception {
+        if (!Files.exists(fileLibrerie)) return false;
+        try (BufferedReader br = Files.newBufferedReader(fileLibrerie)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.isBlank()) continue;
+                String[] c = line.split(";", -1);
+                if (c.length < 3) continue;
+                if (!c[0].equals(userid)) continue;
+                if (Arrays.stream(c[2].split(","))
+                        .anyMatch(p -> p.trim().equals(String.valueOf(bookId)))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }

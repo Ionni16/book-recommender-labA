@@ -20,28 +20,11 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
+import javafx.scene.control.SpinnerValueFactory.IntegerSpinnerValueFactory;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
 import java.net.URL;
@@ -50,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -100,6 +84,8 @@ public class BookRecommenderFX extends Application {
     }
 
     private final DecimalFormat DF1 = new DecimalFormat("0.0");
+    private static final Pattern EMAIL_RX =
+            Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -172,7 +158,6 @@ public class BookRecommenderFX extends Application {
         lblUser = new Label("Ospite");
         lblUser.getStyleClass().add("muted");
 
-        // Accedi: testo nero (nessuna classe "primary")
         btnLogin = new Button("Accedi");
         btnLogin.setOnAction(e -> doLogin());
         btnLogin.setTooltip(new Tooltip("Accedi con un account esistente"));
@@ -197,6 +182,35 @@ public class BookRecommenderFX extends Application {
         HBox.setHgrow(titleBox, Priority.ALWAYS);
         topRow.getChildren().add(userBox);
         topRow.setAlignment(Pos.CENTER_LEFT);
+
+        // NAV: librerie, valutazioni, suggerimenti, profilo
+        Button btnMyLibs = new Button("Le mie librerie");
+        btnMyLibs.setOnAction(e -> {
+            if (ensureLoggedIn() == null) return;
+            LibrariesWindow.open(authService, libraryService, libriRepo);
+        });
+
+        Button btnMyReviews = new Button("Le mie valutazioni");
+        btnMyReviews.setOnAction(e -> {
+            if (ensureLoggedIn() == null) return;
+            ReviewsWindow.open(authService, reviewService, libriRepo);
+        });
+
+        Button btnMySuggs = new Button("I miei suggerimenti");
+        btnMySuggs.setOnAction(e -> {
+            if (ensureLoggedIn() == null) return;
+            SuggestionsWindow.open(authService, suggestionService, libriRepo);
+        });
+
+        Button btnProfile = new Button("Profilo utente");
+        btnProfile.setOnAction(e -> {
+            if (ensureLoggedIn() == null) return;
+            UserProfileWindow.open(authService);
+        });
+
+        HBox navRow = new HBox(10, btnMyLibs, btnMyReviews, btnMySuggs, btnProfile);
+        navRow.setAlignment(Pos.CENTER_LEFT);
+        navRow.setPadding(new Insets(4, 0, 0, 0));
 
         // search row
         tfSearch = new TextField();
@@ -223,7 +237,7 @@ public class BookRecommenderFX extends Application {
         searchRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(tfSearch, Priority.ALWAYS);
 
-        VBox header = new VBox(12, topRow, searchRow);
+        VBox header = new VBox(12, topRow, navRow, searchRow);
         header.getStyleClass().add("appbar");
         header.setPadding(new Insets(12, 16, 12, 16));
         return header;
@@ -456,7 +470,6 @@ public class BookRecommenderFX extends Application {
             } else {
                 lblRatingHeader.setText("Valutazioni degli utenti (" + rs.count + ")");
 
-                // prima il voto finale medio, poi le medie per criterio
                 StringBuilder sbAvg = new StringBuilder();
                 sbAvg.append("Voto finale medio: ").append(DF1.format(rs.mediaVotoFinale)).append(" / 5\n\n");
                 sbAvg.append("Medie per criterio (1–5):\n");
@@ -549,7 +562,7 @@ public class BookRecommenderFX extends Application {
         return user;
     }
 
-    /** Registrazione + login automatico. */
+    /** Registrazione + login automatico, con controlli email/password. */
     private void doRegister() {
         Dialog<String[]> dlg = new Dialog<>();
         dlg.setTitle("Registrazione nuovo utente");
@@ -571,7 +584,8 @@ public class BookRecommenderFX extends Application {
         tfNome.setPromptText("Nome");
         tfCogn.setPromptText("Cognome");
         tfCF.setPromptText("Codice fiscale");
-        tfMail.setPromptText("Email");
+        tfMail.setPromptText("email@esempio.it");
+        pfPw.setPromptText("Password (min 8 caratteri, lettere e numeri)");
 
         grid.add(new Label("Userid"), 0, 0); grid.add(tfUser, 1, 0);
         grid.add(new Label("Password"), 0, 1); grid.add(pfPw, 1, 1);
@@ -591,8 +605,17 @@ public class BookRecommenderFX extends Application {
             String c  = tfCogn.getText().trim();
             String cf = tfCF.getText().trim();
             String em = tfMail.getText().trim();
+
             if (u.isEmpty() || pw.isEmpty()) {
                 showError("Userid e password sono obbligatori.");
+                return null;
+            }
+            if (!EMAIL_RX.matcher(em).matches()) {
+                showError("Email non valida.");
+                return null;
+            }
+            if (!isStrongPassword(pw)) {
+                showError("La password deve avere almeno 8 caratteri e contenere sia lettere che numeri.");
                 return null;
             }
             return new String[]{u, pw, n, c, cf, em};
@@ -665,6 +688,8 @@ public class BookRecommenderFX extends Application {
             showError("Errore nel login: " + e.getMessage());
         }
     }
+
+    // ====== Aggiunta / rimozione libri nelle librerie (semplice) ======
 
     private void onAddToLibrary() {
         Book sel = tblBooks.getSelectionModel().getSelectedItem();
@@ -764,11 +789,11 @@ public class BookRecommenderFX extends Application {
         grid.setVgap(8);
         grid.setPadding(new Insets(12));
 
-        Spinner<Integer> spS = spinner15();
-        Spinner<Integer> spC = spinner15();
-        Spinner<Integer> spG = spinner15();
-        Spinner<Integer> spO = spinner15();
-        Spinner<Integer> spE = spinner15();
+        Spinner<Integer> spS = spinner15(3);
+        Spinner<Integer> spC = spinner15(3);
+        Spinner<Integer> spG = spinner15(3);
+        Spinner<Integer> spO = spinner15(3);
+        Spinner<Integer> spE = spinner15(3);
         TextField tfComm = new TextField();
         tfComm.setPromptText("Commento (max 256 caratteri)");
 
@@ -825,7 +850,7 @@ public class BookRecommenderFX extends Application {
         dlg.setTitle("Suggerisci libri collegati");
         dlg.setHeaderText(
                 "Inserisci fino a 3 ID di libri presenti nelle tue librerie.\n" +
-                "(Usa l'ID numerico del libro, NON il titolo.)");
+                        "(Usa l'ID numerico del libro, NON il titolo.)");
 
         GridPane grid = new GridPane();
         grid.setHgap(8);
@@ -886,11 +911,22 @@ public class BookRecommenderFX extends Application {
 
     // ========================= UTIL =========================
 
-    private Spinner<Integer> spinner15() {
+    private Spinner<Integer> spinner15(int defaultValue) {
         Spinner<Integer> sp = new Spinner<>();
-        sp.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 5, 3));
+        sp.setValueFactory(new IntegerSpinnerValueFactory(1, 5, defaultValue));
         sp.setEditable(false);
+        sp.setMaxWidth(80);
         return sp;
+    }
+
+    private boolean isStrongPassword(String pw) {
+        if (pw.length() < 8) return false;
+        boolean hasLetter = false, hasDigit = false;
+        for (char c : pw.toCharArray()) {
+            if (Character.isLetter(c)) hasLetter = true;
+            if (Character.isDigit(c)) hasDigit = true;
+        }
+        return hasLetter && hasDigit;
     }
 
     private void setStatus(String s) {
