@@ -6,24 +6,15 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.net.URL;
 import java.util.regex.Pattern;
 
-/**
- * Finestra per modificare o eliminare l'account utente.
- *
- * Richiede che AuthService esponga almeno:
- *  - User getUser(String userid)
- *  - boolean updateUser(User updated)
- *  - boolean updatePassword(String userid, String newPlainPassword)
- *  - boolean deleteUser(String userid)
- */
 public class UserProfileWindow extends Stage {
 
     private final AuthService authService;
@@ -39,9 +30,12 @@ public class UserProfileWindow extends Stage {
 
     private static final Pattern EMAIL_RX =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern CF_RX =
+            Pattern.compile("^[A-Za-z0-9]{16}$");
 
     public UserProfileWindow(AuthService authService) {
         this.authService = authService;
+
         String userid = authService.getCurrentUserid();
         if (userid == null) {
             new Alert(Alert.AlertType.ERROR,
@@ -63,27 +57,23 @@ public class UserProfileWindow extends Stage {
         setTitle("Profilo utente");
         initModality(Modality.APPLICATION_MODAL);
 
-        VBox root = new VBox(10);
-        root.setPadding(new Insets(12));
-
-        Label title = new Label("Profilo di " + user.getUserid());
-        title.getStyleClass().add("title2");
-
+        // ==== CENTRO: form dati ====
         GridPane grid = new GridPane();
         grid.setHgap(8);
         grid.setVgap(8);
+        grid.setPadding(new Insets(12));
 
-        tfUser = new TextField(user.getUserid());
+        tfUser = new TextField(nullSafe(user.getUserid()));
         tfUser.setEditable(false);
 
-        tfNome = new TextField(user.getNome());
-        tfCognome = new TextField(user.getCognome());
-        tfCF = new TextField(user.getCodiceFiscale());
-        tfMail = new TextField(user.getEmail());
+        tfNome = new TextField(nullSafe(user.getNome()));
+        tfCognome = new TextField(nullSafe(user.getCognome()));
+        tfCF = new TextField(nullSafe(user.getCodiceFiscale()));
+        tfMail = new TextField(nullSafe(user.getEmail()));
 
         pfNewPw = new PasswordField();
         pfNewPw2 = new PasswordField();
-        pfNewPw.setPromptText("Nuova password (lascia vuoto per non cambiare)");
+        pfNewPw.setPromptText("Nuova password (min 8 caratteri, lettere e numeri)");
         pfNewPw2.setPromptText("Ripeti password");
 
         grid.add(new Label("Userid"), 0, 0); grid.add(tfUser, 1, 0);
@@ -94,9 +84,15 @@ public class UserProfileWindow extends Stage {
         grid.add(new Label("Nuova password"), 0, 5); grid.add(pfNewPw, 1, 5);
         grid.add(new Label("Ripeti password"), 0, 6); grid.add(pfNewPw2, 1, 6);
 
+        // ==== TOP: titolo ====
+        Label title = new Label("Profilo di " + user.getUserid());
+        title.getStyleClass().add("title2");
+        BorderPane.setMargin(title, new Insets(10, 10, 0, 10));
+
+        // ==== BOTTOM: bottoni ====
         Button btnSave = new Button("Salva modifiche");
-        btnSave.getStyleClass().add("primary");
-        btnSave.setOnAction(e -> saveChanges());
+        btnSave.getStyleClass().add("button-black");
+
 
         Button btnDelete = new Button("Elimina account");
         btnDelete.getStyleClass().add("danger");
@@ -105,12 +101,17 @@ public class UserProfileWindow extends Stage {
         Button btnClose = new Button("Chiudi");
         btnClose.setOnAction(e -> close());
 
-        HBox buttons = new HBox(8, btnSave, btnDelete, btnClose);
+        HBox buttons = new HBox(10, btnSave, btnDelete, btnClose);
         buttons.setAlignment(Pos.CENTER_RIGHT);
+        buttons.setPadding(new Insets(10));
 
-        root.getChildren().addAll(title, grid, buttons);
+        // ==== ROOT: BorderPane ====
+        BorderPane root = new BorderPane();
+        root.setTop(title);
+        root.setCenter(grid);
+        root.setBottom(buttons);
 
-        Scene scene = new Scene(root, 520, 320);
+        Scene scene = new Scene(root, 520, 360);
         URL css = getClass().getResource("app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         else scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
@@ -120,6 +121,14 @@ public class UserProfileWindow extends Stage {
 
     private void saveChanges() {
         String email = tfMail.getText().trim();
+        String cf = tfCF.getText().trim();
+
+        if (!cf.isEmpty() && !CF_RX.matcher(cf).matches()) {
+            alert(Alert.AlertType.WARNING,
+                    "Codice fiscale non valido.\nDeve contenere 16 caratteri alfanumerici.");
+            return;
+        }
+
         if (!EMAIL_RX.matcher(email).matches()) {
             alert(Alert.AlertType.WARNING, "Email non valida.");
             return;
@@ -141,10 +150,10 @@ public class UserProfileWindow extends Stage {
 
         user = new User(
                 user.getUserid(),
-                user.getPasswordHash(), // hash aggiornato da AuthService se cambia pw
+                user.getPasswordHash(),
                 tfNome.getText().trim(),
                 tfCognome.getText().trim(),
-                tfCF.getText().trim(),
+                cf,
                 email
         );
 
@@ -157,7 +166,9 @@ public class UserProfileWindow extends Stage {
             if (!pw1.isEmpty()) {
                 boolean pwOk = authService.updatePassword(user.getUserid(), pw1);
                 if (!pwOk) {
-                    alert(Alert.AlertType.ERROR, "Dati salvati, ma aggiornamento password fallito.");
+                    alert(Alert.AlertType.ERROR,
+                            "Dati salvati, ma aggiornamento password fallito.");
+                    return;
                 }
             }
             alert(Alert.AlertType.INFORMATION, "Profilo aggiornato correttamente.");
@@ -189,8 +200,8 @@ public class UserProfileWindow extends Stage {
         }
     }
 
-    private boolean isStrongPassword(String pw) {
-        if (pw.length() < 8) return false;
+    private static boolean isStrongPassword(String pw) {
+        if (pw == null || pw.length() < 8) return false;
         boolean hasLetter = false, hasDigit = false;
         for (char c : pw.toCharArray()) {
             if (Character.isLetter(c)) hasLetter = true;
@@ -201,6 +212,10 @@ public class UserProfileWindow extends Stage {
 
     private void alert(Alert.AlertType type, String msg) {
         new Alert(type, msg, ButtonType.OK).showAndWait();
+    }
+
+    private static String nullSafe(String s) {
+        return s == null ? "" : s;
     }
 
     public static void open(AuthService authService) {

@@ -3,6 +3,8 @@ package bookrecommender;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
+import java.util.regex.Pattern;
+
 
 import java.nio.file.Path;
 import java.util.*;
@@ -92,7 +94,6 @@ public class BookRecommender {
     }
 
     // === Registrazione/Login ===
-    // === Registrazione/Login ===
     private static void doRegister(Scanner in, AuthService auth) {
         System.out.println("=== Registrazione ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();
@@ -102,19 +103,31 @@ public class BookRecommender {
         System.out.print("Codice Fiscale: "); String cf = in.nextLine().trim();
         System.out.print("Email: "); String email = in.nextLine().trim();
 
-        try {
-            String hash = AuthService.sha256(pass);  // <-- adesso è dentro il try
-            User u = new User(userid, hash, nome, cognome, cf, email);
+        if (userid.isEmpty() || pass.isEmpty()) {
+            System.out.println("Userid e password sono obbligatori.");
+            return;
+        }
+        if (!EMAIL_RX.matcher(email).matches()) {
+            System.out.println("Email non valida.");
+            return;
+        }
+        if (!isStrongPassword(pass)) {
+            System.out.println("Password troppo debole. Minimo 8 caratteri, con lettere e numeri.");
+            return;
+        }
 
+        try {
+            String hash = AuthService.sha256(pass);
+            User u = new User(userid, hash, nome, cognome, cf, email);
             boolean ok = auth.registrazione(u);
             System.out.println(ok
                     ? "Registrazione completata."
                     : "Registrazione fallita (userid già esistente?).");
-
         } catch (Exception e) {
             System.out.println("Errore: " + e.getMessage());
         }
     }
+
 
     private static void doLogin(Scanner in, AuthService auth) {
         System.out.println("=== Login ===");
@@ -290,4 +303,18 @@ public class BookRecommender {
             throw e;
         }
     }
+
+    private static final Pattern EMAIL_RX =
+        Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    private static boolean isStrongPassword(String pw) {
+        if (pw == null || pw.length() < 8) return false;
+        boolean hasLetter = false, hasDigit = false;
+        for (char c : pw.toCharArray()) {
+            if (Character.isLetter(c)) hasLetter = true;
+            if (Character.isDigit(c)) hasDigit = true;
+        }
+        return hasLetter && hasDigit;
+    }
+
 }

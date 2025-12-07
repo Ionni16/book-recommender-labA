@@ -120,3 +120,9 @@
   -fx-background-radius: 999;
   -fx-font-size: 13px;
 }
+
+ 
+.button-black {
+    -fx-background-color: black;
+    -fx-text-fill: white;
+}

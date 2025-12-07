@@ -84,8 +84,22 @@ public class BookRecommenderFX extends Application {
     }
 
     private final DecimalFormat DF1 = new DecimalFormat("0.0");
+
+    // pattern per validazioni (registrazione)
     private static final Pattern EMAIL_RX =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern CF_RX =
+            Pattern.compile("^[A-Za-z0-9]{16}$");
+
+    private static boolean isStrongPassword(String pw) {
+        if (pw == null || pw.length() < 8) return false;
+        boolean hasLetter = false, hasDigit = false;
+        for (char c : pw.toCharArray()) {
+            if (Character.isLetter(c)) hasLetter = true;
+            if (Character.isDigit(c)) hasDigit = true;
+        }
+        return hasLetter && hasDigit;
+    }
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -610,14 +624,19 @@ public class BookRecommenderFX extends Application {
                 showError("Userid e password sono obbligatori.");
                 return null;
             }
+            if (!CF_RX.matcher(cf).matches()) {
+                showError("Codice fiscale non valido.\nDeve contenere 16 caratteri alfanumerici.");
+                return null;
+            }
             if (!EMAIL_RX.matcher(em).matches()) {
                 showError("Email non valida.");
                 return null;
             }
             if (!isStrongPassword(pw)) {
-                showError("La password deve avere almeno 8 caratteri e contenere sia lettere che numeri.");
+                showError("Password troppo debole.\nAlmeno 8 caratteri con lettere e numeri.");
                 return null;
             }
+
             return new String[]{u, pw, n, c, cf, em};
         });
 
@@ -690,7 +709,6 @@ public class BookRecommenderFX extends Application {
     }
 
     // ====== Aggiunta / rimozione libri nelle librerie (semplice) ======
-
     private void onAddToLibrary() {
         Book sel = tblBooks.getSelectionModel().getSelectedItem();
         if (sel == null) return;
@@ -738,13 +756,39 @@ public class BookRecommenderFX extends Application {
             dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
 
             Optional<ButtonType> res = dlg.showAndWait();
-            if (!res.isPresent() || res.get() != ButtonType.OK) {
+            if (res.isEmpty() || res.get() != ButtonType.OK) {
                 return;
             }
 
             String rawNewName = tfNewName.getText().trim();
-            String chosenName = rawNewName.isEmpty() ? cbLibs.getValue() : rawNewName;
 
+            // === CASO 1: NUOVA LIBRERIA ===
+            if (!rawNewName.isEmpty()) {
+                boolean exists = libs.stream()
+                        .anyMatch(l -> l.getNome().equalsIgnoreCase(rawNewName));
+                if (exists) {
+                    showError(
+                            "Esiste già una tua libreria chiamata \"" + rawNewName + "\".\n" +
+                            "Non puoi crearne un'altra con lo stesso nome.\n" +
+                            "Se vuoi aggiungere il libro a quella libreria, selezionala dal menu \"Libreria esistente\"."
+                    );
+                    return;
+                }
+
+                Set<Integer> ids = new LinkedHashSet<>();
+                ids.add(sel.getId());
+                Library lib = new Library(user, rawNewName, ids);
+                boolean ok = libraryService.saveLibrary(lib);
+                if (ok) {
+                    setStatus("Libreria \"" + rawNewName + "\" creata e libro aggiunto.");
+                } else {
+                    showError("Impossibile salvare la libreria.");
+                }
+                return;
+            }
+
+            // === CASO 2: LIBRERIA ESISTENTE ===
+            String chosenName = cbLibs.getValue();
             if (chosenName == null || chosenName.isBlank()) {
                 showError("Devi scegliere o creare una libreria.");
                 return;
@@ -754,17 +798,24 @@ public class BookRecommenderFX extends Application {
                     .filter(l -> l.getNome().equals(chosenName))
                     .findFirst()
                     .orElse(null);
-
-            Set<Integer> ids = new LinkedHashSet<>();
-            if (existing != null) {
-                ids.addAll(existing.getBookIds());
+            if (existing == null) {
+                showError("Libreria selezionata non trovata.");
+                return;
             }
+
+            Set<Integer> ids = new LinkedHashSet<>(existing.getBookIds());
+
+            if (ids.contains(sel.getId())) {
+                showError("Questo libro è già presente nella libreria \"" + chosenName + "\".");
+                return;
+            }
+
             ids.add(sel.getId());
 
-            Library lib = new Library(user, chosenName, ids);
-            boolean ok = libraryService.saveLibrary(lib);
+            Library updated = new Library(user, chosenName, ids);
+            boolean ok = libraryService.saveLibrary(updated);
             if (ok) {
-                setStatus("Libro aggiunto alla libreria \"" + lib.getNome() + "\"");
+                setStatus("Libro aggiunto alla libreria \"" + chosenName + "\"");
             } else {
                 showError("Impossibile salvare la libreria.");
             }
@@ -899,7 +950,10 @@ public class BookRecommenderFX extends Application {
             boolean ok = suggestionService.inserisciSuggerimento(sug);
             if (!ok) {
                 showError("Suggerimento non accettato.\n" +
-                        "Puoi indicare al massimo 3 libri diversi, presenti nelle tue librerie e differenti da questo libro.");
+                        "Controlla che:\n" +
+                        "• tu NON abbia già inserito un suggerimento per questo libro;\n" +
+                        "• i libri suggeriti siano al massimo 3, tutti diversi,\n" +
+                        "  presenti nelle tue librerie e diversi da questo libro.");
             } else {
                 setStatus("Suggerimento registrato.");
                 updateDetail(sel);
@@ -917,16 +971,6 @@ public class BookRecommenderFX extends Application {
         sp.setEditable(false);
         sp.setMaxWidth(80);
         return sp;
-    }
-
-    private boolean isStrongPassword(String pw) {
-        if (pw.length() < 8) return false;
-        boolean hasLetter = false, hasDigit = false;
-        for (char c : pw.toCharArray()) {
-            if (Character.isLetter(c)) hasLetter = true;
-            if (Character.isDigit(c)) hasDigit = true;
-        }
-        return hasLetter && hasDigit;
     }
 
     private void setStatus(String s) {

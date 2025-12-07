@@ -35,6 +35,7 @@ public class SuggestionService {
      */
     public boolean inserisciSuggerimento(Suggestion s) throws Exception {
         List<Integer> ids = new ArrayList<>(s.getSuggeriti());
+
         // filtra duplicati e self
         ids = ids.stream().distinct()
                 .filter(id -> id != s.getBookId())
@@ -48,21 +49,20 @@ public class SuggestionService {
             }
         }
 
-        // ok: salviamo (sovrascrivendo eventuale suggerimento precedente per lo stesso libro base)
+        // ⚠️ NUOVO: l'utente può suggerire per quel libro UNA SOLA VOLTA
         List<Suggestion> all = loadAll();
-        List<Suggestion> nuovo = new ArrayList<>();
-        for (Suggestion old : all) {
-            if (old.getUserid().equals(s.getUserid())
-                    && old.getBookId() == s.getBookId()) {
-                // sovrascrivo
-                continue;
-            }
-            nuovo.add(old);
+        boolean esisteGia = all.stream()
+                .anyMatch(old -> old.getUserid().equals(s.getUserid())
+                        && old.getBookId() == s.getBookId());
+        if (esisteGia) {
+            return false;
         }
-        nuovo.add(new Suggestion(s.getUserid(), s.getBookId(), ids));
-        saveAll(nuovo);
+
+        all.add(new Suggestion(s.getUserid(), s.getBookId(), ids));
+        saveAll(all);
         return true;
     }
+
 
     // ============ METODI PER LA GUI ============
 
