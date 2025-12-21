@@ -2,116 +2,41 @@ package bookrecommender.ui;
 
 import bookrecommender.model.User;
 import bookrecommender.service.AuthService;
+
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
+import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.net.URL;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class UserProfileWindow extends Stage {
 
     private final AuthService authService;
-    private User user;
 
-    private TextField tfUser;
-    private TextField tfNome;
-    private TextField tfCognome;
-    private TextField tfCF;
-    private TextField tfMail;
-    private PasswordField pfNewPw;
-    private PasswordField pfNewPw2;
-
-    private static final Pattern EMAIL_RX =
-            Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-    private static final Pattern CF_RX =
-            Pattern.compile("^[A-Za-z0-9]{16}$");
+    private static final Pattern EMAIL_RX = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     public UserProfileWindow(AuthService authService) {
         this.authService = authService;
 
-        String userid = authService.getCurrentUserid();
-        if (userid == null) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Nessun utente loggato.", ButtonType.OK).showAndWait();
-            close();
-            return;
-        }
-
-        try {
-            this.user = authService.getUser(userid);
-        } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Impossibile caricare i dati dell'utente:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
-            close();
-            return;
-        }
-
-        setTitle("Profilo utente");
+        setTitle("Account");
         initModality(Modality.APPLICATION_MODAL);
 
-        // ==== CENTRO: form dati ====
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        tfUser = new TextField(nullSafe(user.getUserid()));
-        tfUser.setEditable(false);
-
-        tfNome = new TextField(nullSafe(user.getNome()));
-        tfCognome = new TextField(nullSafe(user.getCognome()));
-        tfCF = new TextField(nullSafe(user.getCodiceFiscale()));
-        tfMail = new TextField(nullSafe(user.getEmail()));
-
-        pfNewPw = new PasswordField();
-        pfNewPw2 = new PasswordField();
-        pfNewPw.setPromptText("Nuova password (min 8 caratteri, lettere e numeri)");
-        pfNewPw2.setPromptText("Ripeti password");
-
-        grid.add(new Label("Userid"), 0, 0); grid.add(tfUser, 1, 0);
-        grid.add(new Label("Nome"), 0, 1); grid.add(tfNome, 1, 1);
-        grid.add(new Label("Cognome"), 0, 2); grid.add(tfCognome, 1, 2);
-        grid.add(new Label("Codice fiscale"), 0, 3); grid.add(tfCF, 1, 3);
-        grid.add(new Label("Email"), 0, 4); grid.add(tfMail, 1, 4);
-        grid.add(new Label("Nuova password"), 0, 5); grid.add(pfNewPw, 1, 5);
-        grid.add(new Label("Ripeti password"), 0, 6); grid.add(pfNewPw2, 1, 6);
-
-        // ==== TOP: titolo ====
-        Label title = new Label("Profilo di " + user.getUserid());
-        title.getStyleClass().add("title2");
-        BorderPane.setMargin(title, new Insets(10, 10, 0, 10));
-
-        // ==== BOTTOM: bottoni ====
-        Button btnSave = new Button("Salva modifiche");
-        btnSave.getStyleClass().add("button-black");
-
-
-        Button btnDelete = new Button("Elimina account");
-        btnDelete.getStyleClass().add("danger");
-        btnDelete.setOnAction(e -> deleteAccount());
-
-        Button btnClose = new Button("Chiudi");
-        btnClose.setOnAction(e -> close());
-
-        HBox buttons = new HBox(10, btnSave, btnDelete, btnClose);
-        buttons.setAlignment(Pos.CENTER_RIGHT);
-        buttons.setPadding(new Insets(10));
-
-        // ==== ROOT: BorderPane ====
         BorderPane root = new BorderPane();
-        root.setTop(title);
-        root.setCenter(grid);
-        root.setBottom(buttons);
+        root.getStyleClass().add("app-bg");
+        root.setTop(buildHeader());
+        root.setCenter(buildCenter());
+        root.setBottom(buildFooter());
 
-        Scene scene = new Scene(root, 520, 360);
+        Scene scene = new Scene(new StackPane(root), 820, 560);
+
         URL css = getClass().getResource("app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         else scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
@@ -119,107 +44,261 @@ public class UserProfileWindow extends Stage {
         setScene(scene);
     }
 
-    private void saveChanges() {
-        String email = tfMail.getText().trim();
-        String cf = tfCF.getText().trim();
+    private Node buildHeader() {
+        Label h = new Label("Account");
+        h.getStyleClass().add("title");
 
-        if (!cf.isEmpty() && !CF_RX.matcher(cf).matches()) {
-            alert(Alert.AlertType.WARNING,
-                    "Codice fiscale non valido.\nDeve contenere 16 caratteri alfanumerici.");
-            return;
+        Label sub = new Label("Gestisci email, password e sicurezza dell’account");
+        sub.getStyleClass().add("subtitle");
+
+        VBox box = new VBox(4, h, sub);
+        box.getStyleClass().add("appbar");
+        return box;
+    }
+
+    private Node buildCenter() {
+        String userId = authService.getCurrentUserid();
+        if (userId == null) {
+            VBox v = new VBox(10, new Label("Login richiesto."));
+            v.getStyleClass().add("card");
+            v.setPadding(new Insets(14));
+            BorderPane wrap = new BorderPane(v);
+            wrap.setPadding(new Insets(14));
+            return wrap;
         }
 
-        if (!EMAIL_RX.matcher(email).matches()) {
-            alert(Alert.AlertType.WARNING, "Email non valida.");
-            return;
-        }
-
-        String pw1 = pfNewPw.getText();
-        String pw2 = pfNewPw2.getText();
-        if (!pw1.isEmpty() || !pw2.isEmpty()) {
-            if (!pw1.equals(pw2)) {
-                alert(Alert.AlertType.WARNING, "Le password non coincidono.");
-                return;
-            }
-            if (!isStrongPassword(pw1)) {
-                alert(Alert.AlertType.WARNING,
-                        "La password deve contenere almeno 8 caratteri, con lettere e numeri.");
-                return;
-            }
-        }
-
-        user = new User(
-                user.getUserid(),
-                user.getPasswordHash(),
-                tfNome.getText().trim(),
-                tfCognome.getText().trim(),
-                cf,
-                email
-        );
-
+        User u;
         try {
-            boolean ok = authService.updateUser(user);
-            if (!ok) {
-                alert(Alert.AlertType.ERROR, "Impossibile salvare i dati utente.");
-                return;
+            u = authService.getUser(userId);
+        } catch (Exception e) {
+            FxUtil.error(this, "Errore", "Impossibile leggere i dati utente: " + e.getMessage());
+            u = null;
+        }
+
+        VBox page = new VBox(14);
+        page.setPadding(new Insets(14));
+        page.setFillWidth(true);
+
+        // ---- Card: dati personali ----
+        VBox info = new VBox(8);
+        info.getStyleClass().add("card2");
+        info.setPadding(new Insets(14));
+
+        Label t1 = new Label("Dati personali");
+        t1.getStyleClass().add("card-title");
+
+        Label nome = muted("Nome: " + (u == null ? "-" : safe(u.getNome())));
+        Label cognome = muted("Cognome: " + (u == null ? "-" : safe(u.getCognome())));
+        Label cf = muted("Codice Fiscale: " + (u == null ? "-" : safe(u.getCodiceFiscale())));
+        Label user = muted("Username: " + (u == null ? "-" : safe(u.getUserid())));
+
+        info.getChildren().addAll(t1, nome, cognome, cf, user);
+
+        // ---- Card: email ----
+        VBox emailCard = new VBox(10);
+        emailCard.getStyleClass().add("card");
+        emailCard.setPadding(new Insets(14));
+
+        Label t2 = new Label("Email");
+        t2.getStyleClass().add("card-title");
+        Label t2sub = muted("Aggiorna la tua email di contatto. Verrà salvata subito.");
+
+        TextField email = new TextField(u == null ? "" : safe(u.getEmail()));
+        email.setPromptText("email@dominio.it");
+
+        Button saveEmail = new Button("Aggiorna Email");
+        saveEmail.getStyleClass().add("primary");
+        saveEmail.setOnAction(e -> {
+            try {
+                String em = safe(email.getText());
+                if (!EMAIL_RX.matcher(em).matches())
+                    throw new IllegalArgumentException("Email non valida.");
+
+                User current = authService.getUser(userId);
+                User updated = new User(
+                        current.getUserid(),
+                        current.getPasswordHash(),
+                        current.getNome(),
+                        current.getCognome(),
+                        current.getCodiceFiscale(),
+                        em
+                );
+
+                boolean ok = authService.updateUser(updated);
+                if (!ok) throw new IllegalStateException("Aggiornamento fallito.");
+                FxUtil.toast(getScene(), "Email aggiornata");
+            } catch (Exception ex) {
+                FxUtil.error(this, "Errore", ex.getMessage());
             }
-            if (!pw1.isEmpty()) {
-                boolean pwOk = authService.updatePassword(user.getUserid(), pw1);
-                if (!pwOk) {
-                    alert(Alert.AlertType.ERROR,
-                            "Dati salvati, ma aggiornamento password fallito.");
-                    return;
+        });
+
+        HBox emailActions = new HBox(saveEmail);
+        emailActions.setAlignment(Pos.CENTER_RIGHT);
+
+        emailCard.getChildren().addAll(t2, t2sub, email, emailActions);
+
+        // ---- Card: password ----
+        VBox pwCard = new VBox(10);
+        pwCard.getStyleClass().add("card");
+        pwCard.setPadding(new Insets(14));
+
+        Label t3 = new Label("Password");
+        t3.getStyleClass().add("card-title");
+        Label t3sub = muted("Scegli una password forte (min 8 caratteri).");
+
+        PasswordReveal pw1 = PasswordReveal.create("Nuova password");
+        PasswordReveal pw2 = PasswordReveal.create("Ripeti nuova password");
+
+        Button savePw = new Button("Cambia Password");
+        savePw.getStyleClass().add("primary");
+        savePw.setOnAction(e -> {
+            try {
+                String a = pw1.getText();
+                String b = pw2.getText();
+                if (a == null || a.isBlank() || b == null || b.isBlank())
+                    throw new IllegalArgumentException("Inserisci entrambe le password.");
+                if (!Objects.equals(a, b))
+                    throw new IllegalArgumentException("Le password non corrispondono.");
+                if (a.length() < 8)
+                    throw new IllegalArgumentException("Password troppo corta (min 8).");
+
+                boolean ok = authService.updatePassword(userId, a);
+                if (!ok) throw new IllegalStateException("Password non aggiornata.");
+
+                pw1.clear();
+                pw2.clear();
+                FxUtil.toast(getScene(), "Password aggiornata");
+            } catch (Exception ex) {
+                FxUtil.error(this, "Errore", ex.getMessage());
+            }
+        });
+
+        HBox pwActions = new HBox(savePw);
+        pwActions.setAlignment(Pos.CENTER_RIGHT);
+
+        pwCard.getChildren().addAll(t3, t3sub, pw1.getNode(), pw2.getNode(), pwActions);
+
+        // ---- Card: danger zone ----
+        VBox danger = new VBox(10);
+        danger.getStyleClass().add("card2");
+        danger.setPadding(new Insets(14));
+
+        Label t4 = new Label("Zona pericolosa");
+        t4.getStyleClass().add("card-title");
+        Label t4sub = muted("Elimina definitivamente l’account. Operazione irreversibile.");
+
+        Button deleteAcc = new Button("Elimina account");
+        deleteAcc.getStyleClass().add("danger");
+        deleteAcc.setOnAction(e -> {
+            if (!FxUtil.confirm(this, "Conferma", "Eliminare definitivamente l'account? Operazione irreversibile."))
+                return;
+            try {
+                boolean ok = authService.deleteUser(userId);
+                if (!ok) throw new IllegalStateException("Eliminazione fallita.");
+                authService.logout();
+                FxUtil.info(this, "Account eliminato", "L’account è stato eliminato e sei stato disconnesso.");
+                close();
+            } catch (Exception ex) {
+                FxUtil.error(this, "Errore", ex.getMessage());
+            }
+        });
+
+        HBox dangerActions = new HBox(deleteAcc);
+        dangerActions.setAlignment(Pos.CENTER_RIGHT);
+
+        danger.getChildren().addAll(t4, t4sub, dangerActions);
+
+        page.getChildren().addAll(info, emailCard, pwCard, danger);
+
+        ScrollPane sp = new ScrollPane(page);
+        sp.setFitToWidth(true);
+        sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        // ✅ classe CSS che rende trasparente anche la viewport
+        sp.getStyleClass().add("scroll-clean");
+
+        // ✅ fallback: forza viewport trasparente via codice (alcune versioni JavaFX ignorano il CSS)
+        Platform.runLater(() -> {
+            Node viewport = sp.lookup(".viewport");
+            if (viewport != null) {
+                viewport.setStyle("-fx-background-color: transparent;");
+            }
+        });
+
+        return sp;
+    }
+
+    private Node buildFooter() {
+        Label hint = new Label("Suggerimento: usa l’icona 👁 per vedere la password mentre scrivi.");
+        hint.getStyleClass().add("muted");
+
+        Button close = new Button("Chiudi");
+        close.getStyleClass().add("ghost");
+        close.setOnAction(e -> close());
+
+        HBox bar = new HBox(10, hint, new Pane(), close);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("statusbar");
+        return bar;
+    }
+
+    private static Label muted(String text) {
+        Label l = new Label(text);
+        l.getStyleClass().add("muted");
+        l.setWrapText(true);
+        return l;
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    // Password reveal component
+    private static final class PasswordReveal {
+        private final PasswordField pf = new PasswordField();
+        private final TextField tf = new TextField();
+        private final Button eye = new Button("👁");
+        private final HBox root;
+
+        private PasswordReveal(String prompt) {
+            pf.setPromptText(prompt);
+            tf.setPromptText(prompt);
+
+            tf.textProperty().bindBidirectional(pf.textProperty());
+
+            tf.setVisible(false);
+            tf.setManaged(false);
+
+            eye.getStyleClass().addAll("ghost", "icon");
+            eye.setFocusTraversable(false);
+
+            eye.setOnAction(e -> {
+                boolean showing = tf.isVisible();
+                if (showing) {
+                    tf.setVisible(false); tf.setManaged(false);
+                    pf.setVisible(true);  pf.setManaged(true);
+                } else {
+                    pf.setVisible(false); pf.setManaged(false);
+                    tf.setVisible(true);  tf.setManaged(true);
                 }
-            }
-            alert(Alert.AlertType.INFORMATION, "Profilo aggiornato correttamente.");
-        } catch (Exception e) {
-            alert(Alert.AlertType.ERROR, "Errore nel salvataggio: " + e.getMessage());
+            });
+
+            StackPane stack = new StackPane(pf, tf);
+            HBox.setHgrow(stack, Priority.ALWAYS);
+
+            root = new HBox(10, stack, eye);
+            root.setAlignment(Pos.CENTER_LEFT);
         }
-    }
 
-    private void deleteAccount() {
-        Alert ask = new Alert(Alert.AlertType.CONFIRMATION,
-                "Vuoi davvero eliminare il tuo account?\n" +
-                        "Le tue librerie, valutazioni e suggerimenti potrebbero essere non più utilizzabili.",
-                ButtonType.NO, ButtonType.YES);
-        ask.setHeaderText("Conferma eliminazione account");
-        ask.showAndWait();
-        if (ask.getResult() != ButtonType.YES) return;
-
-        try {
-            boolean ok = authService.deleteUser(user.getUserid());
-            if (!ok) {
-                alert(Alert.AlertType.WARNING, "Impossibile eliminare l'account (non trovato).");
-                return;
-            }
-            authService.logout();
-            alert(Alert.AlertType.INFORMATION, "Account eliminato. Verrai disconnesso.");
-            close();
-        } catch (Exception e) {
-            alert(Alert.AlertType.ERROR, "Errore nell'eliminazione account: " + e.getMessage());
-        }
-    }
-
-    private static boolean isStrongPassword(String pw) {
-        if (pw == null || pw.length() < 8) return false;
-        boolean hasLetter = false, hasDigit = false;
-        for (char c : pw.toCharArray()) {
-            if (Character.isLetter(c)) hasLetter = true;
-            if (Character.isDigit(c)) hasDigit = true;
-        }
-        return hasLetter && hasDigit;
-    }
-
-    private void alert(Alert.AlertType type, String msg) {
-        new Alert(type, msg, ButtonType.OK).showAndWait();
-    }
-
-    private static String nullSafe(String s) {
-        return s == null ? "" : s;
+        static PasswordReveal create(String prompt) { return new PasswordReveal(prompt); }
+        Node getNode() { return root; }
+        String getText() { return pf.getText(); }
+        void clear() { pf.clear(); }
     }
 
     public static void open(AuthService authService) {
         UserProfileWindow w = new UserProfileWindow(authService);
-        w.show();
+        w.showAndWait();
     }
 }

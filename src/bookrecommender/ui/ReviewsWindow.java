@@ -5,8 +5,13 @@ import bookrecommender.model.Review;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.ReviewService;
+
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -14,246 +19,156 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.net.URL;
-import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * Finestra per la gestione delle valutazioni:
- * - mostra tutte le valutazioni fatte dall'utente loggato
- * - permette di modificarle o cancellarle
- *
- * Richiede che ReviewService esponga:
- *  - List<Review> listByUser(String userid)
- *  - boolean deleteReview(String userid, int bookId)
- *  - boolean updateReview(Review r)
- */
 public class ReviewsWindow extends Stage {
 
     private final AuthService authService;
     private final ReviewService reviewService;
     private final LibriRepository libriRepo;
 
-    private TableView<ReviewRow> table;
+    private final ObservableList<Review> reviews = FXCollections.observableArrayList();
 
-    public ReviewsWindow(AuthService authService,
-                         ReviewService reviewService,
-                         LibriRepository libriRepo) {
+    private TableView<Review> tbl;
+    private Label lblHeader;
+
+    public ReviewsWindow(AuthService authService, ReviewService reviewService, LibriRepository libriRepo) {
         this.authService = authService;
         this.reviewService = reviewService;
         this.libriRepo = libriRepo;
-
-        String userid = authService.getCurrentUserid();
-        if (userid == null) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Nessun utente loggato.", ButtonType.OK).showAndWait();
-            close();
-            return;
-        }
 
         setTitle("Le mie valutazioni");
         initModality(Modality.APPLICATION_MODAL);
 
         BorderPane root = new BorderPane();
+        root.getStyleClass().add("app-bg");
+        root.setTop(buildHeader());
         root.setCenter(buildCenter());
         root.setBottom(buildFooter());
 
-        Scene scene = new Scene(root, 900, 480);
+        Scene scene = new Scene(new StackPane(root), 980, 560);
+
         URL css = getClass().getResource("app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         else scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
 
         setScene(scene);
-        loadData();
+        load();
     }
 
-    private VBox buildCenter() {
-        table = new TableView<>();
-        table.setPlaceholder(new Label("Nessuna valutazione trovata."));
+    private Node buildHeader() {
+        lblHeader = new Label("Valutazioni");
+        lblHeader.getStyleClass().add("title");
 
-        TableColumn<ReviewRow, Number> colId = new TableColumn<>("ID libro");
-        colId.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty(c.getValue().bookId));
-        colId.setPrefWidth(90);
+        Label sub = new Label("Visualizza ed elimina le tue valutazioni.");
+        sub.getStyleClass().add("subtitle");
 
-        TableColumn<ReviewRow, String> colTitolo = new TableColumn<>("Titolo");
-        colTitolo.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().title));
-        colTitolo.setPrefWidth(350);
-
-        TableColumn<ReviewRow, Number> colVoto = new TableColumn<>("Voto finale");
-        colVoto.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty(c.getValue().votoFinale));
-        colVoto.setPrefWidth(100);
-
-        TableColumn<ReviewRow, String> colComm = new TableColumn<>("Commento");
-        colComm.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().commento));
-        colComm.setPrefWidth(320);
-
-        table.getColumns().addAll(colId, colTitolo, colVoto, colComm);
-
-        Button btnEdit = new Button("Modifica");
-        btnEdit.setOnAction(e -> editSelected());
-        btnEdit.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
-
-        Button btnDelete = new Button("Elimina");
-        btnDelete.getStyleClass().add("danger");
-        btnDelete.setOnAction(e -> deleteSelected());
-        btnDelete.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
-
-        HBox actions = new HBox(8, btnEdit, btnDelete);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.setPadding(new Insets(8, 0, 0, 0));
-
-        VBox box = new VBox(8, new Label("Valutazioni effettuate"), table, actions);
-        box.setPadding(new Insets(10));
-        VBox.setVgrow(table, Priority.ALWAYS);
+        VBox box = new VBox(4, lblHeader, sub);
+        box.getStyleClass().add("appbar");
         return box;
     }
 
-    private HBox buildFooter() {
-        Button btnClose = new Button("Chiudi");
-        btnClose.setOnAction(e -> close());
-        HBox box = new HBox(btnClose);
-        box.setAlignment(Pos.CENTER_RIGHT);
-        box.setPadding(new Insets(8, 12, 8, 12));
-        return box;
-    }
+    private Node buildCenter() {
+        VBox card = new VBox(10);
+        card.getStyleClass().add("card2");
+        card.setPadding(new Insets(14));
 
-    private void loadData() {
-        try {
-            String userid = authService.getCurrentUserid();
-            List<Review> rs = reviewService.listByUser(userid);
-            List<ReviewRow> rows = rs.stream().map(r -> {
-                Book b = libriRepo.findById(r.getBookId());
-                String titolo = b != null ? b.getTitolo() : ("[ID " + r.getBookId() + "]");
-                return new ReviewRow(r, titolo);
-            }).collect(Collectors.toList());
-            table.getItems().setAll(rows);
-        } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nel caricamento delle valutazioni:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
-        }
-    }
+        tbl = new TableView<>(reviews);
+        tbl.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tbl.setPlaceholder(new Label("Nessuna valutazione disponibile."));
 
-    private void editSelected() {
-        ReviewRow row = table.getSelectionModel().getSelectedItem();
-        if (row == null) return;
-        Review r = row.review;
+        TableColumn<Review, Integer> cBookId = new TableColumn<>("ID Libro");
+        cBookId.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getBookId()));
+        cBookId.setMaxWidth(110);
 
-        Dialog<Review> dlg = new Dialog<>();
-        dlg.setTitle("Modifica valutazione");
-        dlg.setHeaderText("Libro ID " + r.getBookId());
-
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        Spinner<Integer> spS = spinner15(r.getStile());
-        Spinner<Integer> spC = spinner15(r.getContenuto());
-        Spinner<Integer> spG = spinner15(r.getGradevolezza());
-        Spinner<Integer> spO = spinner15(r.getOriginalita());
-        Spinner<Integer> spE = spinner15(r.getEdizione());
-        TextField tfComm = new TextField(r.getCommento());
-        tfComm.setPromptText("Commento (max 256 caratteri)");
-
-        grid.add(new Label("Stile"), 0, 0); grid.add(spS, 1, 0);
-        grid.add(new Label("Contenuto"), 0, 1); grid.add(spC, 1, 1);
-        grid.add(new Label("Gradevolezza"), 0, 2); grid.add(spG, 1, 2);
-        grid.add(new Label("Originalità"), 0, 3); grid.add(spO, 1, 3);
-        grid.add(new Label("Edizione"), 0, 4); grid.add(spE, 1, 4);
-        grid.add(new Label("Commento"), 0, 5); grid.add(tfComm, 1, 5);
-
-        dlg.getDialogPane().setContent(grid);
-        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-        dlg.setResultConverter(bt -> {
-            if (bt != ButtonType.OK) return null;
-            String comm = tfComm.getText();
-            if (comm != null && comm.length() > 256) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Il commento supera i 256 caratteri.",
-                        ButtonType.OK).showAndWait();
-                return null;
-            }
-            int s = spS.getValue();
-            int c = spC.getValue();
-            int g = spG.getValue();
-            int o = spO.getValue();
-            int e = spE.getValue();
-            int voto = Review.calcolaVotoFinale(s, c, g, o, e);
-            return new Review(r.getUserid(), r.getBookId(), s, c, g, o, e, voto, comm);
+        TableColumn<Review, String> cTitle = new TableColumn<>("Titolo");
+        cTitle.setCellValueFactory(v -> {
+            Book b = libriRepo.findById(v.getValue().getBookId());
+            return new ReadOnlyObjectWrapper<>(b == null ? "(n/d)" : b.getTitolo());
         });
 
-        Review updated = dlg.showAndWait().orElse(null);
-        if (updated == null) return;
+        TableColumn<Review, Integer> cFinal = new TableColumn<>("Voto");
+        cFinal.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getVotoFinale()));
+        cFinal.setMaxWidth(110);
+
+        TableColumn<Review, String> cComment = new TableColumn<>("Commento");
+        cComment.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(
+                v.getValue().getCommento() == null ? "" : v.getValue().getCommento()
+        ));
+
+        tbl.getColumns().addAll(cBookId, cTitle, cFinal, cComment);
+
+        Button btnDelete = new Button("Elimina valutazione");
+        btnDelete.getStyleClass().add("danger");
+        btnDelete.disableProperty().bind(tbl.getSelectionModel().selectedItemProperty().isNull());
+        btnDelete.setOnAction(e -> deleteSelected());
+
+        Button btnReload = new Button("Ricarica");
+        btnReload.getStyleClass().add("ghost");
+        btnReload.setOnAction(e -> load());
+
+        HBox actions = new HBox(10, btnReload, btnDelete);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+
+        card.getChildren().addAll(new Label("Elenco"), tbl, actions);
+        VBox.setVgrow(tbl, Priority.ALWAYS);
+
+        BorderPane wrap = new BorderPane(card);
+        wrap.setPadding(new Insets(14));
+        return wrap;
+    }
+
+    private Node buildFooter() {
+        Label hint = new Label("Nota: per creare/modificare valutazioni usa i comandi previsti nella tua UI principale.");
+        hint.getStyleClass().add("muted");
+
+        Button close = new Button("Chiudi");
+        close.getStyleClass().add("ghost");
+        close.setOnAction(e -> close());
+
+        HBox bar = new HBox(10, hint, new Pane(), close);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("statusbar");
+        return bar;
+    }
+
+    private void load() {
+        String user = authService.getCurrentUserid();
+        if (user == null) {
+            lblHeader.setText("Valutazioni (login richiesto)");
+            reviews.clear();
+            return;
+        }
+
+        lblHeader.setText("Valutazioni di: " + user);
 
         try {
-            boolean ok = reviewService.updateReview(updated);
-            if (!ok) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Impossibile aggiornare la valutazione.",
-                        ButtonType.OK).showAndWait();
-            }
-            loadData();
+            reviews.setAll(reviewService.listByUser(user));
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nell'aggiornamento della valutazione:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", e.getMessage());
         }
     }
 
     private void deleteSelected() {
-        ReviewRow row = table.getSelectionModel().getSelectedItem();
-        if (row == null) return;
-        Review r = row.review;
+        Review r = tbl.getSelectionModel().getSelectedItem();
+        if (r == null) return;
 
-        Alert ask = new Alert(Alert.AlertType.CONFIRMATION,
-                "Eliminare la valutazione del libro ID " + r.getBookId() + "?",
-                ButtonType.NO, ButtonType.YES);
-        ask.setHeaderText("Conferma eliminazione valutazione");
-        ask.showAndWait();
-        if (ask.getResult() != ButtonType.YES) return;
+        Book b = libriRepo.findById(r.getBookId());
+        String title = b == null ? String.valueOf(r.getBookId()) : b.getTitolo();
+
+        if (!FxUtil.confirm(this, "Conferma", "Eliminare la valutazione per: " + title + "?"))
+            return;
 
         try {
-            boolean ok = reviewService.deleteReview(r.getUserid(), r.getBookId());
-            if (!ok) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Valutazione non trovata.",
-                        ButtonType.OK).showAndWait();
-            }
-            loadData();
+            boolean ok = reviewService.deleteReview(authService.getCurrentUserid(), r.getBookId());
+            if (!ok) throw new IllegalStateException("Eliminazione fallita.");
+            load();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nell'eliminazione della valutazione:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", e.getMessage());
         }
     }
 
-    private Spinner<Integer> spinner15(int value) {
-        Spinner<Integer> sp = new Spinner<>(1, 5, value);
-        sp.setEditable(false);
-        sp.setMaxWidth(80);
-        return sp;
-    }
-
-    private static class ReviewRow {
-        final Review review;
-        final int bookId;
-        final int votoFinale;
-        final String title;
-        final String commento;
-
-        ReviewRow(Review r, String title) {
-            this.review = r;
-            this.bookId = r.getBookId();
-            this.votoFinale = r.getVotoFinale();
-            this.title = title;
-            this.commento = r.getCommento() == null ? "" : r.getCommento();
-        }
-    }
-
-    public static void open(AuthService authService,
-                            ReviewService reviewService,
-                            LibriRepository libriRepo) {
-        ReviewsWindow w = new ReviewsWindow(authService, reviewService, libriRepo);
-        w.show();
+    public static void open(AuthService authService, ReviewService reviewService, LibriRepository repo) {
+        ReviewsWindow w = new ReviewsWindow(authService, reviewService, repo);
+        w.showAndWait();
     }
 }

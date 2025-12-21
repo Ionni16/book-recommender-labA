@@ -5,18 +5,18 @@ import bookrecommender.model.Library;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.LibraryService;
+
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -24,13 +24,6 @@ import java.net.URL;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Finestra per la gestione delle librerie dell'utente:
- * - visualizza le librerie
- * - rinomina una libreria
- * - elimina una libreria
- * - rimuove libri da una libreria
- */
 public class LibrariesWindow extends Stage {
 
     private final AuthService authService;
@@ -42,25 +35,24 @@ public class LibrariesWindow extends Stage {
 
     private TableView<Library> tblLibs;
     private TableView<Book> tblBooks;
-    private Label lblUser;
 
-    public LibrariesWindow(AuthService authService,
-                           LibraryService libraryService,
-                           LibriRepository libriRepo) {
+    private Label lblHeader;
+
+    public LibrariesWindow(AuthService authService, LibraryService libraryService, LibriRepository libriRepo) {
         this.authService = authService;
         this.libraryService = libraryService;
         this.libriRepo = libriRepo;
 
-        setTitle("Gestione librerie personali");
+        setTitle("Gestione Librerie");
         initModality(Modality.APPLICATION_MODAL);
 
         BorderPane root = new BorderPane();
+        root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
         root.setBottom(buildFooter());
 
-        Scene scene = new Scene(root, 900, 500);
-
+        Scene scene = new Scene(new StackPane(root), 980, 560);
         URL css = getClass().getResource("app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         else scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
@@ -69,114 +61,134 @@ public class LibrariesWindow extends Stage {
         loadLibraries();
     }
 
-    private VBox buildHeader() {
-        lblUser = new Label();
-        lblUser.getStyleClass().add("title2");
+    private Node buildHeader() {
+        lblHeader = new Label("Le tue librerie");
+        lblHeader.getStyleClass().add("title");
 
-        Label subt = new Label("Visualizza, rinomina ed elimina le tue librerie");
-        subt.getStyleClass().add("subtitle");
+        Label sub = new Label("Rinomina, elimina, aggiungi/rimuovi libri");
+        sub.getStyleClass().add("subtitle");
 
-        VBox box = new VBox(2, lblUser, subt);
-        box.setPadding(new Insets(10));
+        VBox box = new VBox(4, lblHeader, sub);
+        box.getStyleClass().add("appbar");
         return box;
     }
 
-    private HBox buildCenter() {
-        // tabella librerie
+    private Node buildCenter() {
+        VBox left = new VBox(10);
+        left.getStyleClass().add("card");
+        left.setPadding(new Insets(14));
+
+        Label lt = new Label("Librerie");
+        lt.getStyleClass().add("card-title");
+
         tblLibs = new TableView<>(libsData);
+        tblLibs.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         tblLibs.setPlaceholder(new Label("Nessuna libreria trovata."));
 
-        TableColumn<Library, String> colNome = new TableColumn<>("Nome libreria");
-        colNome.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getNome()));
-        colNome.setPrefWidth(250);
+        TableColumn<Library, String> cName = new TableColumn<>("Nome");
+        cName.setCellValueFactory(v -> new SimpleStringProperty(v.getValue().getNome()));
 
-        TableColumn<Library, Number> colSize = new TableColumn<>("Numero libri");
-        colSize.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().getBookIds().size()));
-        colSize.setPrefWidth(120);
+        TableColumn<Library, Number> cCount = new TableColumn<>("Libri");
+        cCount.setCellValueFactory(v -> new SimpleIntegerProperty(v.getValue().getBookIds().size()));
+        cCount.setMaxWidth(110);
 
-        tblLibs.getColumns().addAll(colNome, colSize);
-        tblLibs.getSelectionModel().selectedItemProperty()
-                .addListener((obs, o, n) -> loadBooksOf(n));
+        tblLibs.getColumns().addAll(cName, cCount);
 
-        VBox left = new VBox(new Label("Le mie librerie"), tblLibs);
-        left.setSpacing(4);
-        left.setPadding(new Insets(10));
-        VBox.setVgrow(tblLibs, Priority.ALWAYS);
+        tblLibs.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> loadBooksOf(n));
 
-        // tabella libri nella libreria selezionata
-        tblBooks = new TableView<>(booksData);
-        tblBooks.setPlaceholder(new Label("Seleziona una libreria per vedere i libri."));
+        Button btnNew = new Button("Crea libreria…");
+        btnNew.getStyleClass().add("primary");
+        btnNew.setOnAction(e -> createNewLibrary());
 
-        TableColumn<Book, Number> colId = new TableColumn<>("ID");
-        colId.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().getId()));
-        colId.setPrefWidth(70);
-
-        TableColumn<Book, String> colTitolo = new TableColumn<>("Titolo");
-        colTitolo.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getTitolo()));
-        colTitolo.setPrefWidth(320);
-
-        tblBooks.getColumns().addAll(colId, colTitolo);
-
-        Button btnRemoveBook = new Button("Rimuovi libro dalla libreria");
-        btnRemoveBook.setOnAction(e -> removeBookFromLibrary());
-        btnRemoveBook.disableProperty().bind(tblBooks.getSelectionModel().selectedItemProperty().isNull());
-
-        VBox right = new VBox(new Label("Libri nella libreria selezionata"),
-                tblBooks,
-                new HBox(8, btnRemoveBook));
-        right.setSpacing(4);
-        right.setPadding(new Insets(10));
-        VBox.setVgrow(tblBooks, Priority.ALWAYS);
-
-        // pulsanti gestione librerie
-        Button btnRename = new Button("Rinomina libreria");
+        Button btnRename = new Button("Rinomina…");
         btnRename.setOnAction(e -> renameLibrary());
         btnRename.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
-        Button btnDelete = new Button("Elimina libreria");
+        Button btnDelete = new Button("Elimina");
         btnDelete.getStyleClass().add("danger");
         btnDelete.setOnAction(e -> deleteLibrary());
         btnDelete.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
-        VBox leftWithButtons = new VBox(left, new HBox(8, btnRename, btnDelete));
-        leftWithButtons.setSpacing(6);
+        HBox libActions = new HBox(10, btnNew, btnRename, btnDelete);
+        libActions.setAlignment(Pos.CENTER_RIGHT);
 
-        HBox center = new HBox(10, leftWithButtons, right);
-        HBox.setHgrow(leftWithButtons, Priority.ALWAYS);
+        left.getChildren().addAll(lt, tblLibs, libActions);
+        VBox.setVgrow(tblLibs, Priority.ALWAYS);
+
+        VBox right = new VBox(10);
+        right.getStyleClass().add("card2");
+        right.setPadding(new Insets(14));
+
+        Label rt = new Label("Libri nella libreria selezionata");
+        rt.getStyleClass().add("card-title");
+
+        tblBooks = new TableView<>(booksData);
+        tblBooks.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tblBooks.setPlaceholder(new Label("Seleziona una libreria."));
+
+        TableColumn<Book, Integer> cId = new TableColumn<>("ID");
+        cId.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getId()));
+        cId.setMaxWidth(90);
+
+        TableColumn<Book, String> cTitle = new TableColumn<>("Titolo");
+        cTitle.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getTitolo()));
+
+        tblBooks.getColumns().addAll(cId, cTitle);
+
+        Button btnRemove = new Button("Rimuovi libro");
+        btnRemove.getStyleClass().add("danger");
+        btnRemove.setOnAction(e -> removeBookFromLibrary());
+        btnRemove.disableProperty().bind(
+                tblBooks.getSelectionModel().selectedItemProperty().isNull()
+                        .or(tblLibs.getSelectionModel().selectedItemProperty().isNull())
+        );
+
+        HBox bookActions = new HBox(10, btnRemove);
+        bookActions.setAlignment(Pos.CENTER_RIGHT);
+
+        right.getChildren().addAll(rt, tblBooks, bookActions);
+        VBox.setVgrow(tblBooks, Priority.ALWAYS);
+
+        HBox center = new HBox(14, left, right);
         HBox.setHgrow(right, Priority.ALWAYS);
-        return center;
+        left.setPrefWidth(360);
+
+        BorderPane wrap = new BorderPane(center);
+        wrap.setPadding(new Insets(14));
+        return wrap;
     }
 
-    private HBox buildFooter() {
-        Button btnClose = new Button("Chiudi");
-        btnClose.setOnAction(e -> close());
-        HBox box = new HBox(btnClose);
-        box.setAlignment(Pos.CENTER_RIGHT);
-        box.setPadding(new Insets(8, 12, 8, 12));
-        return box;
+    private Node buildFooter() {
+        Label hint = new Label("Suggerimento: rinomina e salva solo se hai modificato qualcosa.");
+        hint.getStyleClass().add("muted");
+
+        Button close = new Button("Chiudi");
+        close.getStyleClass().add("ghost");
+        close.setOnAction(e -> close());
+
+        HBox bar = new HBox(10, hint, new Pane(), close);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("statusbar");
+        return bar;
     }
 
     private void loadLibraries() {
         String user = authService.getCurrentUserid();
         if (user == null) {
-            lblUser.setText("Nessun utente loggato");
             libsData.clear();
             booksData.clear();
+            lblHeader.setText("Le tue librerie (login richiesto)");
             return;
         }
-        lblUser.setText("Librerie di: " + user);
+
+        lblHeader.setText("Librerie di: " + user);
+
         try {
             List<Library> libs = libraryService.listUserLibraries(user);
             libsData.setAll(libs);
-            if (!libs.isEmpty()) {
-                tblLibs.getSelectionModel().select(0);
-            } else {
-                booksData.clear();
-            }
+            if (!libs.isEmpty()) tblLibs.getSelectionModel().select(0);
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nel caricamento delle librerie:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", "Errore nel caricamento delle librerie:\n" + e.getMessage());
         }
     }
 
@@ -188,110 +200,113 @@ public class LibrariesWindow extends Stage {
                 .map(libriRepo::findById)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
         booksData.setAll(bs);
     }
 
-    private void renameLibrary() {
-        Library selected = tblLibs.getSelectionModel().getSelectedItem();
-        if (selected == null) return;
+    private void createNewLibrary() {
+        String user = authService.getCurrentUserid();
+        if (user == null) return;
 
-        TextInputDialog dlg = new TextInputDialog(selected.getNome());
-        dlg.setTitle("Rinomina libreria");
-        dlg.setHeaderText("Nuovo nome per la libreria");
-        dlg.setContentText("Nome:");
+        TextInputDialog d = new TextInputDialog();
+        d.initOwner(this);
+        d.setTitle("Nuova libreria");
+        d.setHeaderText(null);
+        d.setContentText("Nome libreria (min 5 caratteri):");
 
-        String inserito = dlg.showAndWait().orElse(null);
-        if (inserito == null) return;
-        final String nuovoNome = inserito.trim();
-        if (nuovoNome.isEmpty()) return;
+        Optional<String> r = d.showAndWait();
+        if (r.isEmpty()) return;
+
+        String name = r.get().trim();
+        if (name.length() < 5) {
+            FxUtil.error(this, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
+            return;
+        }
 
         try {
-            List<Library> libs = libraryService.listUserLibraries(selected.getUserid());
-            boolean esisteGia = libs.stream()
-                    .anyMatch(l -> l.getNome().equalsIgnoreCase(nuovoNome)
-                            && l != selected);
-            if (esisteGia) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Hai già una libreria con questo nome.",
-                        ButtonType.OK).showAndWait();
-                return;
-            }
+            Library lib = new Library(user, name, new HashSet<>());
+            boolean ok = libraryService.saveLibrary(lib);
+            if (!ok) throw new IllegalStateException("Salvataggio fallito.");
+            loadLibraries();
+            FxUtil.info(this, "Ok", "Libreria creata.");
+        } catch (Exception e) {
+            FxUtil.error(this, "Errore", e.getMessage());
+        }
+    }
 
-            Library rinominata = new Library(
-                    selected.getUserid(),
-                    nuovoNome,
-                    new LinkedHashSet<>(selected.getBookIds())
-            );
+    private void renameLibrary() {
+        Library sel = tblLibs.getSelectionModel().getSelectedItem();
+        if (sel == null) return;
 
-            // salvo la nuova libreria e cancello la vecchia
-            libraryService.saveLibrary(rinominata);
-            libraryService.deleteLibrary(selected.getUserid(), selected.getNome());
+        TextInputDialog d = new TextInputDialog(sel.getNome());
+        d.initOwner(this);
+        d.setTitle("Rinomina libreria");
+        d.setHeaderText(null);
+        d.setContentText("Nuovo nome (min 5 caratteri):");
 
+        Optional<String> r = d.showAndWait();
+        if (r.isEmpty()) return;
+
+        String name = r.get().trim();
+        if (name.length() < 5) {
+            FxUtil.error(this, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
+            return;
+        }
+        if (name.equals(sel.getNome())) {
+            FxUtil.info(this, "Nessuna modifica", "Il nome è identico: nessuna modifica salvata.");
+            return;
+        }
+
+        try {
+            Library updated = new Library(sel.getUserid(), name, sel.getBookIds());
+            boolean ok = libraryService.saveLibrary(updated);
+            if (!ok) throw new IllegalStateException("Salvataggio fallito.");
             loadLibraries();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nella rinomina della libreria:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", e.getMessage());
         }
     }
 
     private void deleteLibrary() {
-        Library selected = tblLibs.getSelectionModel().getSelectedItem();
-        if (selected == null) return;
+        Library sel = tblLibs.getSelectionModel().getSelectedItem();
+        if (sel == null) return;
 
-        Alert ask = new Alert(Alert.AlertType.CONFIRMATION,
-                "Vuoi davvero eliminare la libreria \"" + selected.getNome() + "\"?\n" +
-                        "I libri nel repository NON vengono cancellati, si elimina solo la raccolta personale.",
-                ButtonType.NO, ButtonType.YES);
-        ask.setHeaderText("Conferma eliminazione libreria");
-        ask.showAndWait();
-        if (ask.getResult() != ButtonType.YES) return;
+        if (!FxUtil.confirm(this, "Conferma", "Eliminare definitivamente la libreria \"" + sel.getNome() + "\"?"))
+            return;
 
         try {
-            boolean ok = libraryService.deleteLibrary(selected.getUserid(), selected.getNome());
-            if (!ok) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Impossibile eliminare la libreria (non trovata).",
-                        ButtonType.OK).showAndWait();
-            }
+            boolean ok = libraryService.deleteLibrary(sel.getUserid(), sel.getNome());
+            if (!ok) throw new IllegalStateException("Eliminazione fallita.");
             loadLibraries();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nell'eliminazione della libreria:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", e.getMessage());
         }
     }
 
     private void removeBookFromLibrary() {
         Library lib = tblLibs.getSelectionModel().getSelectedItem();
-        Book book = tblBooks.getSelectionModel().getSelectedItem();
-        if (lib == null || book == null) return;
+        Book b = tblBooks.getSelectionModel().getSelectedItem();
+        if (lib == null || b == null) return;
 
-        Alert ask = new Alert(Alert.AlertType.CONFIRMATION,
-                "Rimuovere \"" + book.getTitolo() + "\" dalla libreria \"" + lib.getNome() + "\"?",
-                ButtonType.NO, ButtonType.YES);
-        ask.setHeaderText("Conferma rimozione libro");
-        ask.showAndWait();
-        if (ask.getResult() != ButtonType.YES) return;
+        if (!FxUtil.confirm(this, "Conferma", "Rimuovere \"" + b.getTitolo() + "\" dalla libreria \"" + lib.getNome() + "\"?"))
+            return;
 
         try {
-            Set<Integer> ids = new LinkedHashSet<>(lib.getBookIds());
-            ids.remove(book.getId());
-            Library aggiornata = new Library(lib.getUserid(), lib.getNome(), ids);
-            libraryService.saveLibrary(aggiornata);
+            Set<Integer> newSet = new HashSet<>(lib.getBookIds());
+            newSet.remove(b.getId());
+            Library updated = new Library(lib.getUserid(), lib.getNome(), newSet);
+
+            boolean ok = libraryService.saveLibrary(updated);
+            if (!ok) throw new IllegalStateException("Aggiornamento fallito.");
+
             loadLibraries();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR,
-                    "Errore nella rimozione del libro:\n" + e.getMessage(),
-                    ButtonType.OK).showAndWait();
+            FxUtil.error(this, "Errore", e.getMessage());
         }
     }
 
-    // helper statico per aprire la finestra dalla GUI principale
-    public static void open(AuthService authService,
-                            LibraryService libraryService,
-                            LibriRepository libriRepo) {
-        LibrariesWindow w = new LibrariesWindow(authService, libraryService, libriRepo);
-        w.show();
+    public static void open(AuthService authService, LibraryService libraryService, LibriRepository repo) {
+        LibrariesWindow w = new LibrariesWindow(authService, libraryService, repo);
+        w.showAndWait();
     }
 }
