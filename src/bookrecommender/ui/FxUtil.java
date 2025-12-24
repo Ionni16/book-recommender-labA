@@ -12,10 +12,33 @@ import javafx.util.Duration;
 
 import java.util.Optional;
 
+/**
+ * Classe di utilità per operazioni comuni dell'interfaccia JavaFX.
+ * <p>
+ * Fornisce metodi statici per mostrare finestre di dialogo
+ * (informazioni, errori, conferme) e un semplice messaggio
+ * di tipo "toast" nella scena corrente.
+ *
+ * @author Matteo Ferrario
+ * @version 1.0
+ */
 public final class FxUtil {
 
+    /**
+     * Costruttore privato per impedire l'istanza della classe.
+     * <p>
+     * Tutte le funzionalità sono esposte tramite metodi statici.
+     */
     private FxUtil() {}
 
+    /**
+     * Mostra una finestra di dialogo informativa con pulsante OK.
+     *
+     * @param owner   finestra proprietaria della dialog (può essere
+     *                <code>null</code> se non si vuole impostare un owner)
+     * @param title   titolo della finestra di dialogo
+     * @param message messaggio informativo da visualizzare
+     */
     public static void info(Window owner, String title, String message) {
         Alert a = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
         if (owner != null) a.initOwner(owner);
@@ -24,6 +47,14 @@ public final class FxUtil {
         a.showAndWait();
     }
 
+    /**
+     * Mostra una finestra di dialogo di errore con pulsante OK.
+     *
+     * @param owner   finestra proprietaria della dialog (può essere
+     *                <code>null</code> se non si vuole impostare un owner)
+     * @param title   titolo della finestra di dialogo
+     * @param message messaggio di errore da visualizzare
+     */
     public static void error(Window owner, String title, String message) {
         Alert a = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
         if (owner != null) a.initOwner(owner);
@@ -32,6 +63,16 @@ public final class FxUtil {
         a.showAndWait();
     }
 
+    /**
+     * Mostra una finestra di dialogo di conferma con pulsanti OK e Annulla.
+     *
+     * @param owner   finestra proprietaria della dialog (può essere
+     *                <code>null</code> se non si vuole impostare un owner)
+     * @param title   titolo della finestra di dialogo
+     * @param message messaggio di conferma da visualizzare
+     * @return {@code true} se l'utente ha selezionato OK,
+     *         {@code false} in caso contrario (Annulla o chiusura della dialog)
+     */
     public static boolean confirm(Window owner, String title, String message) {
         Alert a = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
         if (owner != null) a.initOwner(owner);
@@ -41,7 +82,18 @@ public final class FxUtil {
         return r.isPresent() && r.get() == ButtonType.OK;
     }
 
-    /** Toast semplice in basso al centro (funziona se root Scene è StackPane). */
+    /**
+     * Mostra un semplice messaggio di tipo "toast" in basso al centro della scena.
+     * <p>
+     * Il metodo presuppone che il <code>root</code> della scena sia uno
+     * {@link StackPane}, in modo da poter sovrapporre il messaggio rispetto
+     * ai contenuti esistenti.
+     *
+     * @param scene   scena su cui visualizzare il toast; se <code>null</code>
+     *                o se il <code>root</code> non è uno {@link StackPane},
+     *                il metodo non esegue alcuna azione
+     * @param message testo del messaggio da mostrare
+     */
     public static void toast(Scene scene, String message) {
         if (scene == null) return;
         if (!(scene.getRoot() instanceof StackPane stack)) return;
@@ -53,7 +105,7 @@ public final class FxUtil {
         stack.getChildren().add(chip);
 
         PauseTransition pt = new PauseTransition(Duration.seconds(2.2));
-        pt.setOnFinished(e -> stack.getChildren().remove(chip));
+        pt.setOnFinished(_ -> stack.getChildren().remove(chip));
         pt.playFromStart();
     }
 }

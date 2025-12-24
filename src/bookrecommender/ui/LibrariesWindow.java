@@ -24,6 +24,27 @@ import java.net.URL;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Finestra di gestione delle librerie personali dell'utente.
+ * <p>
+ * Questa finestra modale permette di:
+ * <ul>
+ *     <li>Visualizzare tutte le librerie dell'utente autenticato;</li>
+ *     <li>Creare nuove librerie;</li>
+ *     <li>Rinominare ed eliminare librerie esistenti;</li>
+ *     <li>Visualizzare i libri contenuti nella libreria selezionata;</li>
+ *     <li>Rimuovere singoli libri da una libreria.</li>
+ * </ul>
+ * I dati sono forniti dai servizi {@link AuthService} e
+ * {@link LibraryService} e dal {@link LibriRepository} per risolvere i
+ * dettagli dei libri a partire dagli identificatori.
+ *
+ * @author Matteo Ferrario
+ * @version 1.0
+ * @see bookrecommender.service.LibraryService
+ * @see bookrecommender.service.AuthService
+ * @see bookrecommender.repo.LibriRepository
+ */
 public class LibrariesWindow extends Stage {
 
     private final AuthService authService;
@@ -38,6 +59,21 @@ public class LibrariesWindow extends Stage {
 
     private Label lblHeader;
 
+    /**
+     * Costruisce e inizializza la finestra di gestione librerie.
+     * <p>
+     * Nel costruttore vengono:
+     * <ul>
+     *     <li>Memorizzate le dipendenze verso i servizi e il repository libri;</li>
+     *     <li>Costruita la struttura grafica (header, centro, footer);</li>
+     *     <li>Applicato il foglio di stile <code>app.css</code>;</li>
+     *     <li>Caricate le librerie dell'utente attualmente autenticato.</li>
+     * </ul>
+     *
+     * @param authService    servizio di autenticazione per recuperare l'utente corrente
+     * @param libraryService servizio per l'accesso e la modifica delle librerie
+     * @param libriRepo      repository libri usato per risolvere i dettagli dei volumi
+     */
     public LibrariesWindow(AuthService authService, LibraryService libraryService, LibriRepository libriRepo) {
         this.authService = authService;
         this.libraryService = libraryService;
@@ -82,7 +118,7 @@ public class LibrariesWindow extends Stage {
         lt.getStyleClass().add("card-title");
 
         tblLibs = new TableView<>(libsData);
-        tblLibs.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tblLibs.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tblLibs.setPlaceholder(new Label("Nessuna libreria trovata."));
 
         TableColumn<Library, String> cName = new TableColumn<>("Nome");
@@ -94,19 +130,19 @@ public class LibrariesWindow extends Stage {
 
         tblLibs.getColumns().addAll(cName, cCount);
 
-        tblLibs.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> loadBooksOf(n));
+        tblLibs.getSelectionModel().selectedItemProperty().addListener((n) -> loadBooksOf((Library) n));
 
         Button btnNew = new Button("Crea libreria…");
         btnNew.getStyleClass().add("primary");
-        btnNew.setOnAction(e -> createNewLibrary());
+        btnNew.setOnAction(_ -> createNewLibrary());
 
         Button btnRename = new Button("Rinomina…");
-        btnRename.setOnAction(e -> renameLibrary());
+        btnRename.setOnAction(_ -> renameLibrary());
         btnRename.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
         Button btnDelete = new Button("Elimina");
         btnDelete.getStyleClass().add("danger");
-        btnDelete.setOnAction(e -> deleteLibrary());
+        btnDelete.setOnAction(_ -> deleteLibrary());
         btnDelete.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
         HBox libActions = new HBox(10, btnNew, btnRename, btnDelete);
@@ -123,7 +159,7 @@ public class LibrariesWindow extends Stage {
         rt.getStyleClass().add("card-title");
 
         tblBooks = new TableView<>(booksData);
-        tblBooks.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tblBooks.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tblBooks.setPlaceholder(new Label("Seleziona una libreria."));
 
         TableColumn<Book, Integer> cId = new TableColumn<>("ID");
@@ -137,7 +173,7 @@ public class LibrariesWindow extends Stage {
 
         Button btnRemove = new Button("Rimuovi libro");
         btnRemove.getStyleClass().add("danger");
-        btnRemove.setOnAction(e -> removeBookFromLibrary());
+        btnRemove.setOnAction(_ -> removeBookFromLibrary());
         btnRemove.disableProperty().bind(
                 tblBooks.getSelectionModel().selectedItemProperty().isNull()
                         .or(tblLibs.getSelectionModel().selectedItemProperty().isNull())
@@ -164,7 +200,7 @@ public class LibrariesWindow extends Stage {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(e -> close());
+        close.setOnAction(_ -> close());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
@@ -305,6 +341,16 @@ public class LibrariesWindow extends Stage {
         }
     }
 
+    /**
+     * Apre la finestra di gestione librerie come dialog modale
+     * e blocca l'esecuzione fino alla sua chiusura.
+     *
+     * @param authService servizio di autenticazione per determinare
+     * l'utente corrente
+     * @param libraryService servizio di gestione delle librerie
+     * @param repo repository dei libri, usato per risolvere gli ID
+     * contenuti nelle librerie
+     */
     public static void open(AuthService authService, LibraryService libraryService, LibriRepository repo) {
         LibrariesWindow w = new LibrariesWindow(authService, libraryService, repo);
         w.showAndWait();

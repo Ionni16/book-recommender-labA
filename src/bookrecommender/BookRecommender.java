@@ -3,17 +3,44 @@ package bookrecommender;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
-import java.util.regex.Pattern;
-
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Applicazione console <code>BookRecommender</code> (Lab A).
+ * <p>
+ * Fornisce un'interfaccia testuale per:
+ * <ul>
+ *     <li>Ricercare libri per titolo, autore, autore+anno;</li>
+ *     <li>Registrare nuovi utenti e gestire il login/logout;</li>
+ *     <li>Creare/aggiornare librerie personali di libri;</li>
+ *     <li>Inserire valutazioni sui libri;</li>
+ *     <li>Inserire suggerimenti di libri correlati;</li>
+ *     <li>Visualizzare i dettagli aggregati di un libro
+ *         (statistiche su valutazioni e suggerimenti).</li>
+ * </ul>
+ * I dati sono letti e scritti da/verso file <code>.dati</code> nella cartella
+ * <code>data</code> tramite i repository e i servizi del package
+ * <code>bookrecommender.service</code>.
+ *
+ * @author Ionut Puiu -753296- Sede: VA, Matteo Ferrario -756147- Sede: VA, Hamdi Kebeli -- Sede: CO.
+ * @version 1.0
+ */
 public class BookRecommender {
+
     /**
-     * Autori: Ionut Puiu -753296- Sede: VA
-     *         
+     * Punto di ingresso dell'applicazione console.
+     * <p>
+     * Inizializza il repository dei libri e i vari servizi di dominio,
+     * quindi mostra un menù testuale che rimane attivo finché l'utente
+     * non sceglie l'opzione di uscita.
+     *
+     * @param args argomenti da riga di comando (non utilizzati)
+     * @throws Exception in caso di errori imprevisti durante l'accesso ai file
+     *                   o l'inizializzazione dei servizi
      */
     public static void main(String[] args) throws Exception {
         Scanner in = new Scanner(System.in);
@@ -305,7 +332,7 @@ public class BookRecommender {
     }
 
     private static final Pattern EMAIL_RX =
-        Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+            Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     private static boolean isStrongPassword(String pw) {
         if (pw == null || pw.length() < 8) return false;

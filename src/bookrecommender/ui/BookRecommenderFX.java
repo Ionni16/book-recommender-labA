@@ -1,19 +1,14 @@
 package bookrecommender.ui;
 
-import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.util.StringConverter;
-import bookrecommender.model.Book;
-import bookrecommender.model.Library;
-import bookrecommender.model.Review;
-import bookrecommender.model.Suggestion;
-import bookrecommender.model.User;
+import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
-
 import javafx.application.Application;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -23,10 +18,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import javafx.collections.transformation.FilteredList;
-import javafx.collections.transformation.SortedList;
 import javafx.util.StringConverter;
-
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -37,6 +29,28 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+
+/**
+ * Classe principale dell'interfaccia grafica JavaFX dell'applicazione
+ * <code>Book Recommender</code>.
+ * <p>
+ * Si occupa di:
+ * <ul>
+ *     <li>Inizializzare i servizi di accesso ai dati
+ *         ({@link bookrecommender.repo.LibriRepository} e i vari
+ *         servizi nel package <code>bookrecommender.service</code>);</li>
+ *     <li>Configurare lo stile JavaFX e caricare il foglio di stile CSS;</li>
+ *     <li>Costruire la finestra principale con barra superiore, area di ricerca
+ *         e tabella dei risultati;</li>
+ *     <li>Aprire le finestre secondarie (login, registrazione, profilo utente,
+ *         gestione librerie, valutazioni e suggerimenti);</li>
+ *     <li>Gestire lo stato dell'utente corrente (login/logout) aggiornando
+ *         i controlli visibili nella UI.</li>
+ * </ul>
+ *
+ * @author Ionut Puiu
+ * @version 1.0
+ */
 public class BookRecommenderFX extends Application {
 
     // ---- Services ----
@@ -109,6 +123,26 @@ public class BookRecommenderFX extends Application {
         return hasLetter && hasDigit;
     }
 
+
+    /**
+     * Punto di ingresso dell'applicazione JavaFX.
+     * <p>
+     * In questo metodo vengono:
+     * <ul>
+     *     <li>Creata (se necessario) la cartella locale dei dati;</li>
+     *     <li>Inizializzati i repository e i servizi di dominio
+     *         (ricerca, autenticazione, librerie, valutazioni, suggerimenti,
+     *         aggregazione statistiche);</li>
+     *     <li>Costruiti i nodi principali dell'interfaccia grafica
+     *         (barra superiore, area ricerca, tabella risultati);</li>
+     *     <li>Impostata la scena principale e mostrato lo <code>Stage</code> passato
+     *         dal runtime JavaFX.</li>
+     * </ul>
+     *
+     * @param stage finestra principale fornita dal runtime JavaFX
+     * @throws Exception in caso di errori di I/O o in fase di inizializzazione
+     *                   dei servizi e delle risorse grafiche
+     */
     @Override
     public void start(Stage stage) throws Exception {
         dataDir = Paths.get("data");
@@ -129,7 +163,6 @@ public class BookRecommenderFX extends Application {
         app.getStyleClass().add("app-bg");
         stack.getChildren().add(app);
 
-        // IMPORTANTISSIMO: lo StackPane non deve "centrare" la UI
         StackPane.setAlignment(app, Pos.TOP_LEFT);
 
         // e il BorderPane deve sempre riempire la scena
@@ -363,7 +396,7 @@ public class BookRecommenderFX extends Application {
         tbl = new TableView<>(data);
 
         // più “web”: niente tagli strani, scroll se serve
-        tbl.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tbl.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tbl.setPlaceholder(new Label("Esegui una ricerca per visualizzare risultati."));
 
         TableColumn<Book, Integer> cId = new TableColumn<>("ID");
@@ -389,7 +422,6 @@ public class BookRecommenderFX extends Application {
         cAuthor.setMinWidth(260); cAuthor.setMaxWidth(800);
         cYear.setMinWidth(80);    cYear.setMaxWidth(120);
 
-        // ✅ header centrato + celle centrate
         cYear.setStyle("-fx-alignment: CENTER;");
         cYear.setCellFactory(col -> new TableCell<>() {
             @Override protected void updateItem(Integer item, boolean empty) {
@@ -399,7 +431,6 @@ public class BookRecommenderFX extends Application {
             }
         });
 
-        // ✅ STOP: dopo Anno non c'è più niente
         tbl.getColumns().setAll(cId, cTitle, cAuthor, cYear);
 
     
@@ -589,7 +620,6 @@ public class BookRecommenderFX extends Application {
         dPublisher = new Label("-");
         dPublisher.getStyleClass().add("chip");
 
-        // ✅ Wrap dei chip così non si taglia e resta "web app"
         FlowPane chips = new FlowPane(10, 10, dMeta, dCategory, dPublisher);
         chips.setPrefWrapLength(360); // adatta alla larghezza della colonna destra
         chips.setAlignment(Pos.CENTER_LEFT);
@@ -601,14 +631,12 @@ public class BookRecommenderFX extends Application {
         dAvg.getStyleClass().add("muted");
         dAvg.setWrapText(true);
 
-        // ✅ qui vanno le righe con stelle (Stile/Contenuto/…)
         dStarsBox = new VBox(6);
 
         Label sugT = new Label("Consigliati");
         sugT.getStyleClass().add("card-title");
         dSuggestions = new VBox(8);
 
-        // ✅ Bottone fondamentale: aggiungi alla libreria
         Button btnAddToLibrary = new Button("Aggiungi alla mia libreria");
         btnAddToLibrary.getStyleClass().add("primary");
         btnAddToLibrary.setMaxWidth(Double.MAX_VALUE);
@@ -899,7 +927,7 @@ public class BookRecommenderFX extends Application {
             return;
         }
 
-        final Review existing = found;            // ✅ ora è final
+        final Review existing = found;
         final boolean editing = (existing != null);
 
         Dialog<Void> d = new Dialog<>();
@@ -1102,8 +1130,6 @@ public class BookRecommenderFX extends Application {
                     return;
                 }
 
-                // ✅ requisito: solo libri nelle mie librerie
-                // (qui è garantito perché la ComboBox contiene solo myBooks)
 
                 Suggestion s = new Suggestion(user, book.getId(), new ArrayList<>(ids));
                 boolean ok = suggestionService.inserisciSuggerimento(s);
@@ -1115,7 +1141,6 @@ public class BookRecommenderFX extends Application {
                     return;
                 }
 
-                // ✅ FIX: ricarica aggregazioni (evita cache vecchia)
                 aggregationService = new AggregationService(
                         dataDir.resolve("ValutazioniLibri.dati"),
                         dataDir.resolve("ConsigliLibri.dati")
@@ -1246,7 +1271,7 @@ public class BookRecommenderFX extends Application {
 
         ComboBox<Book> cb = new ComboBox<>(sorted);
         cb.setMaxWidth(Double.MAX_VALUE);
-        cb.setEditable(true); // ✅ posso cercare scrivendo
+        cb.setEditable(true);
 
         // converter: testo mostrato nell’editor quando selezioni un libro
         cb.setConverter(new StringConverter<>() {
@@ -1556,6 +1581,16 @@ public class BookRecommenderFX extends Application {
         String getText() { return pf.getText(); }
     }
 
+
+    /**
+     * Metodo <code>main</code> dell'applicazione.
+     * <p>
+     * Delega l'avvio al runtime JavaFX tramite la chiamata a
+     * {@link #launch(String...)} che, a sua volta, invoca il metodo
+     * {@link #start(javafx.stage.Stage)}.
+     *
+     * @param args argomenti della riga di comando (non utilizzati)
+     */
     public static void main(String[] args) {
         launch(args);
     }

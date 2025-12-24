@@ -80,20 +80,7 @@ public class Library {
      */
     public Set<Integer> getBookIds() { return new LinkedHashSet<>(bookIds); }
 
-    // --------------- DA SISTEMARE ---------------
-    //TODO: nessun controllo di duplicati, da aggiungere
-    /*public boolean addBook(int id) {
-        if (bookIds.contains(id)) return false;
-        return bookIds.add(id);
-    }*/
 
-
-    //TODO: assenza di gestione della rimozione, aggiungere interfaccia grafica per visualizzare le librerie
-    //      poterle selezionare e rimuovere il libro
-    /*public boolean removeBook(int id) { return bookIds.remove(id); }*/
-
-
-    //TODO: output visivo di errore assente
     /**
      * Confronta questa libreria con un altro oggetto per verificarne
      * l'uguaglianza. Due librerie sono considerate uguali se appartengono

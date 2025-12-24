@@ -21,6 +21,25 @@ import javafx.stage.Stage;
 import java.net.URL;
 import java.util.stream.Collectors;
 
+/**
+ * Finestra modale per la visualizzazione e gestione dei consigli
+ * (suggerimenti di libri correlati) inseriti dall'utente.
+ * <p>
+ * La finestra mostra, per l'utente attualmente autenticato:
+ * <ul>
+ *     <li>Il libro “base” a cui sono associati i consigli;</li>
+ *     <li>Il titolo del libro di partenza;</li>
+ *     <li>La lista dei libri suggeriti (fino a tre), mostrati per titolo.</li>
+ * </ul>
+ * Dalla tabella l'utente può ricaricare l'elenco oppure eliminare un
+ * consiglio selezionato.
+ *
+ * @author Ionut Puiu
+ * @version 1.0
+ * @see bookrecommender.service.SuggestionService
+ * @see bookrecommender.service.AuthService
+ * @see bookrecommender.repo.LibriRepository
+ */
 public class SuggestionsWindow extends Stage {
 
     private final AuthService authService;
@@ -32,6 +51,24 @@ public class SuggestionsWindow extends Stage {
     private TableView<Suggestion> tbl;
     private Label lblHeader;
 
+    /**
+     * Costruisce e inizializza la finestra dei consigli.
+     * <p>
+     * Nel costruttore vengono:
+     * <ul>
+     *     <li>Memorizzate le dipendenze verso i servizi e il repository libri;</li>
+     *     <li>Costruiti header, contenuto centrale e footer;</li>
+     *     <li>Applicato il foglio di stile <code>app.css</code>;</li>
+     *     <li>Caricati i suggerimenti relativi all'utente corrente
+     *         (se autenticato).</li>
+     * </ul>
+     *
+     * @param authService        servizio di autenticazione per determinare
+     *                           l'utente corrente
+     * @param suggestionService  servizio per la gestione dei suggerimenti
+     * @param libriRepo          repository dei libri, usato per risolvere
+     *                           gli ID dei libri in titoli leggibili
+     */
     public SuggestionsWindow(AuthService authService, SuggestionService suggestionService, LibriRepository libriRepo) {
         this.authService = authService;
         this.suggestionService = suggestionService;
@@ -74,7 +111,7 @@ public class SuggestionsWindow extends Stage {
         card.setPadding(new Insets(14));
 
         tbl = new TableView<>(suggestions);
-        tbl.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tbl.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tbl.setPlaceholder(new Label("Nessun consiglio disponibile."));
 
         TableColumn<Suggestion, Integer> cBook = new TableColumn<>("ID Libro");
@@ -103,11 +140,11 @@ public class SuggestionsWindow extends Stage {
         Button btnDelete = new Button("Elimina consiglio");
         btnDelete.getStyleClass().add("danger");
         btnDelete.disableProperty().bind(tbl.getSelectionModel().selectedItemProperty().isNull());
-        btnDelete.setOnAction(e -> deleteSelected());
+        btnDelete.setOnAction(_ -> deleteSelected());
 
         Button btnReload = new Button("Ricarica");
         btnReload.getStyleClass().add("ghost");
-        btnReload.setOnAction(e -> load());
+        btnReload.setOnAction(_ -> load());
 
         HBox actions = new HBox(10, btnReload, btnDelete);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -126,7 +163,7 @@ public class SuggestionsWindow extends Stage {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(e -> close());
+        close.setOnAction(_ -> close());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
@@ -170,6 +207,16 @@ public class SuggestionsWindow extends Stage {
         }
     }
 
+    /**
+     * Apre la finestra dei consigli come dialog modale e blocca
+     * l'esecuzione fino alla sua chiusura.
+     *
+     * @param authService       servizio di autenticazione per individuare
+     *                          l'utente corrente
+     * @param suggestionService servizio di gestione dei suggerimenti
+     * @param repo              repository dei libri, usato per mostrare
+     *                          i titoli dei libri di partenza e suggeriti
+     */
     public static void open(AuthService authService, SuggestionService suggestionService, LibriRepository repo) {
         SuggestionsWindow w = new SuggestionsWindow(authService, suggestionService, repo);
         w.showAndWait();

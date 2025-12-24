@@ -20,6 +20,26 @@ import javafx.stage.Stage;
 
 import java.net.URL;
 
+/**
+ * Finestra modale per la visualizzazione e gestione delle valutazioni
+ * inserite dall'utente.
+ * <p>
+ * La finestra mostra in una tabella tutte le valutazioni relative
+ * all'utente attualmente autenticato e permette di:
+ * <ul>
+ *     <li>Ricaricare l'elenco delle valutazioni;</li>
+ *     <li>Eliminare una valutazione selezionata.</li>
+ * </ul>
+ * I dettagli dei libri (titolo) sono recuperati tramite il
+ * {@link LibriRepository}, mentre i dati delle valutazioni sono gestiti
+ * dal {@link ReviewService}.
+ *
+ * @author Matteo Ferrario
+ * @version 1.0
+ * @see bookrecommender.service.ReviewService
+ * @see bookrecommender.service.AuthService
+ * @see bookrecommender.repo.LibriRepository
+ */
 public class ReviewsWindow extends Stage {
 
     private final AuthService authService;
@@ -31,6 +51,23 @@ public class ReviewsWindow extends Stage {
     private TableView<Review> tbl;
     private Label lblHeader;
 
+    /**
+     * Costruisce e inizializza la finestra delle valutazioni.
+     * <p>
+     * Nel costruttore vengono:
+     * <ul>
+     *     <li>Memorizzate le dipendenze verso i servizi e il repository libri;</li>
+     *     <li>Costruiti header, contenuto centrale e footer;</li>
+     *     <li>Applicato il foglio di stile <code>app.css</code>;</li>
+     *     <li>Caricate le valutazioni dell'utente corrente (se presente).</li>
+     * </ul>
+     *
+     * @param authService   servizio di autenticazione per determinare
+     *                      l'utente corrente
+     * @param reviewService servizio per la gestione delle valutazioni
+     * @param libriRepo     repository dei libri, usato per ottenere
+     *                      i dettagli dei libri a partire dagli ID
+     */
     public ReviewsWindow(AuthService authService, ReviewService reviewService, LibriRepository libriRepo) {
         this.authService = authService;
         this.reviewService = reviewService;
@@ -73,7 +110,7 @@ public class ReviewsWindow extends Stage {
         card.setPadding(new Insets(14));
 
         tbl = new TableView<>(reviews);
-        tbl.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tbl.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tbl.setPlaceholder(new Label("Nessuna valutazione disponibile."));
 
         TableColumn<Review, Integer> cBookId = new TableColumn<>("ID Libro");
@@ -100,11 +137,11 @@ public class ReviewsWindow extends Stage {
         Button btnDelete = new Button("Elimina valutazione");
         btnDelete.getStyleClass().add("danger");
         btnDelete.disableProperty().bind(tbl.getSelectionModel().selectedItemProperty().isNull());
-        btnDelete.setOnAction(e -> deleteSelected());
+        btnDelete.setOnAction(_ -> deleteSelected());
 
         Button btnReload = new Button("Ricarica");
         btnReload.getStyleClass().add("ghost");
-        btnReload.setOnAction(e -> load());
+        btnReload.setOnAction(_ -> load());
 
         HBox actions = new HBox(10, btnReload, btnDelete);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -123,7 +160,7 @@ public class ReviewsWindow extends Stage {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(e -> close());
+        close.setOnAction(_ -> close());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
@@ -167,6 +204,16 @@ public class ReviewsWindow extends Stage {
         }
     }
 
+    /**
+     * Apre la finestra delle valutazioni come dialog modale
+     * e blocca l'esecuzione finché l'utente non la chiude.
+     *
+     * @param authService   servizio di autenticazione per individuare
+     *                      l'utente corrente
+     * @param reviewService servizio di gestione delle valutazioni
+     * @param repo          repository dei libri, usato per visualizzare
+     *                      i dettagli dei volumi associati alle valutazioni
+     */
     public static void open(AuthService authService, ReviewService reviewService, LibriRepository repo) {
         ReviewsWindow w = new ReviewsWindow(authService, reviewService, repo);
         w.showAndWait();

@@ -9,27 +9,103 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
+
+/**
+ * La classe <code>AggregationService</code> fornisce metodi per calcolare
+ * statistiche aggregate sulle valutazioni e sui suggerimenti dei libri.
+ * <p>
+ * Utilizza i repository {@link ValutazioniRepository} e
+ * {@link ConsigliRepository} per leggere i dati grezzi dai file
+ * e li trasforma in strutture riassuntive pronte per la visualizzazione
+ * nelle finestre di dettaglio dei libri.
+ *
+ * @author Matteo Ferrario
+ * @version 1.0
+ * @see bookrecommender.repo.ValutazioniRepository
+ * @see bookrecommender.repo.ConsigliRepository
+ * @see bookrecommender.model.Review
+ * @see bookrecommender.model.Suggestion
+ */
 public class AggregationService {
     private final ValutazioniRepository valRepo;
     private final ConsigliRepository consRepo;
 
+
+    /**
+     * Costruisce un nuovo servizio di aggregazione a partire dai percorsi
+     * dei file delle valutazioni e dei suggerimenti.
+     *
+     * @param valutazioniFile percorso del file contenente le valutazioni
+     * @param consigliFile    percorso del file contenente i suggerimenti
+     */
     public AggregationService(Path valutazioniFile, Path consigliFile) {
         this.valRepo = new ValutazioniRepository(valutazioniFile);
         this.consRepo = new ConsigliRepository(consigliFile);
     }
 
+
+    /**
+     * Struttura dati che rappresenta le statistiche aggregate sulle
+     * valutazioni di un singolo libro.
+     * <p>
+     * Contiene:
+     * <ul>
+     *     <li>il numero totale di valutazioni disponibili;</li>
+     *     <li>la distribuzione dei voti finali;</li>
+     *     <li>le medie per ciascun criterio di valutazione
+     *         (stile, contenuto, gradevolezza, originalità, edizione);</li>
+     *     <li>la media complessiva del voto finale.</li>
+     * </ul>
+     */
     public static class ReviewStats {
         public int count;
+
+        /**
+         * Mappa che associa a ciascun ID di libro suggerito il numero di
+         * utenti che lo hanno indicato come correlato.
+         * <p>
+         * La mappa è mantenuta in ordine di inserimento, che in questo
+         * caso corrisponde all'ordinamento per frequenza (dal più suggerito
+         * al meno suggerito).
+         */
         public Map<Integer,Integer> distribuzioneVoti = new TreeMap<>(); // votoFinale  count
         public double mediaStile, mediaContenuto, mediaGradevolezza, mediaOriginalita, mediaEdizione;
         public double mediaVotoFinale; //  NUOVO: media totale (voto finale)
     }
 
+
+    /**
+     * Struttura dati che rappresenta le statistiche aggregate sui
+     * suggerimenti di libri correlati a un libro base.
+     * <p>
+     * Per ogni ID di libro suggerito viene memorizzato il numero di utenti
+     * che lo hanno indicato come correlato al libro considerato.
+     */
     public static class SuggestionsStats {
         // idLibro suggerito - numero di utenti che l'hanno suggerito
         public Map<Integer,Integer> suggeritiCount = new LinkedHashMap<>();
     }
 
+
+    /**
+     * Calcola le statistiche aggregate sulle valutazioni per un determinato libro.
+     * <p>
+     * Le statistiche includono:
+     * <ul>
+     *     <li>numero totale di valutazioni;</li>
+     *     <li>distribuzione dei voti finali;</li>
+     *     <li>medie per ciascun criterio (stile, contenuto, gradevolezza,
+     *         originalità, edizione);</li>
+     *     <li>media complessiva del voto finale.</li>
+     * </ul>
+     * Se non esistono valutazioni per il libro indicato, viene restituita
+     * una struttura con conteggio pari a zero e campi numerici a valore
+     * predefinito.
+     *
+     * @param bookId identificatore del libro di cui calcolare le statistiche
+     * @return oggetto {@link ReviewStats} popolato con i dati aggregati
+     * @throws IOException in caso di errore di I/O durante la lettura delle valutazioni
+     */
     public ReviewStats getReviewStats(int bookId) throws IOException {
         List<Review> reviews = valRepo.findByBookId(bookId);
         ReviewStats s = new ReviewStats();
@@ -55,6 +131,21 @@ public class AggregationService {
         return s;
     }
 
+
+    /**
+     * Calcola le statistiche aggregate sui suggerimenti di libri correlati
+     * per un determinato libro base.
+     * <p>
+     * Per ogni suggerimento presente a file viene incrementato il conteggio
+     * del relativo ID di libro. Il risultato finale è ordinato in modo
+     * decrescente rispetto al numero di suggerimenti ricevuti, così da
+     * poter visualizzare facilmente i libri più frequentemente associati.
+     *
+     * @param bookId identificatore del libro base di cui analizzare i suggerimenti
+     * @return oggetto {@link SuggestionsStats} contenente, per ciascun ID di libro
+     *         suggerito, il numero di utenti che lo hanno indicato
+     * @throws IOException in caso di errore di I/O durante la lettura dei suggerimenti
+     */
     public SuggestionsStats getSuggestionsStats(int bookId) throws IOException {
         List<Suggestion> sugs = consRepo.findByBookId(bookId);
         SuggestionsStats s = new SuggestionsStats();

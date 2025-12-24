@@ -17,12 +17,43 @@ import java.net.URL;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+/**
+ * Finestra modale per la gestione del profilo utente.
+ * <p>
+ * Permette all'utente autenticato di:
+ * <ul>
+ *     <li>Visualizzare i propri dati anagrafici (nome, cognome, codice fiscale, username);</li>
+ *     <li>Aggiornare l'indirizzo email di contatto;</li>
+ *     <li>Modificare la password con verifica di conferma;</li>
+ *     <li>Eliminare definitivamente il proprio account.</li>
+ * </ul>
+ * I dati vengono letti e aggiornati tramite il {@link AuthService}.
+ *
+ * @author Matteo Ferrario
+ * @version 1.0
+ * @see bookrecommender.service.AuthService
+ */
 public class UserProfileWindow extends Stage {
 
     private final AuthService authService;
 
+    /** Espressione regolare minimale per la validazione della sintassi dell'email. */
     private static final Pattern EMAIL_RX = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
+    /**
+     * Costruisce e inizializza la finestra del profilo utente.
+     * <p>
+     * Nel costruttore vengono:
+     * <ul>
+     *     <li>Memorizzato il servizio di autenticazione;</li>
+     *     <li>Configurati titolo e modalità modale della finestra;</li>
+     *     <li>Costruiti header, contenuto centrale e footer;</li>
+     *     <li>Applicato il foglio di stile <code>app.css</code>.</li>
+     * </ul>
+     *
+     * @param authService servizio di autenticazione usato per recuperare
+     *                    e modificare i dati dell'utente corrente
+     */
     public UserProfileWindow(AuthService authService) {
         this.authService = authService;
 
@@ -108,7 +139,7 @@ public class UserProfileWindow extends Stage {
 
         Button saveEmail = new Button("Aggiorna Email");
         saveEmail.getStyleClass().add("primary");
-        saveEmail.setOnAction(e -> {
+        saveEmail.setOnAction(_ -> {
             try {
                 String em = safe(email.getText());
                 if (!EMAIL_RX.matcher(em).matches())
@@ -151,7 +182,7 @@ public class UserProfileWindow extends Stage {
 
         Button savePw = new Button("Cambia Password");
         savePw.getStyleClass().add("primary");
-        savePw.setOnAction(e -> {
+        savePw.setOnAction(_ -> {
             try {
                 String a = pw1.getText();
                 String b = pw2.getText();
@@ -189,7 +220,7 @@ public class UserProfileWindow extends Stage {
 
         Button deleteAcc = new Button("Elimina account");
         deleteAcc.getStyleClass().add("danger");
-        deleteAcc.setOnAction(e -> {
+        deleteAcc.setOnAction(_ -> {
             if (!FxUtil.confirm(this, "Conferma", "Eliminare definitivamente l'account? Operazione irreversibile."))
                 return;
             try {
@@ -215,10 +246,10 @@ public class UserProfileWindow extends Stage {
         sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        // ✅ classe CSS che rende trasparente anche la viewport
+        // classe CSS che rende trasparente anche la viewport
         sp.getStyleClass().add("scroll-clean");
 
-        // ✅ fallback: forza viewport trasparente via codice (alcune versioni JavaFX ignorano il CSS)
+        // fallback: forza viewport trasparente via codice (alcune versioni JavaFX ignorano il CSS)
         Platform.runLater(() -> {
             Node viewport = sp.lookup(".viewport");
             if (viewport != null) {
@@ -235,7 +266,7 @@ public class UserProfileWindow extends Stage {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(e -> close());
+        close.setOnAction(_ -> close());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
@@ -254,11 +285,16 @@ public class UserProfileWindow extends Stage {
         return s == null ? "" : s.trim();
     }
 
-    // Password reveal component
+    /**
+     * Componente interno per la gestione dei campi password con pulsante
+     * di "reveal" (mostra/nascondi testo).
+     * <p>
+     * Incapsula un {@link PasswordField}, un {@link TextField} e un pulsante
+     * a forma di icona, esponendo un unico nodo grafico da inserire nel layout.
+     */
     private static final class PasswordReveal {
         private final PasswordField pf = new PasswordField();
         private final TextField tf = new TextField();
-        private final Button eye = new Button("👁");
         private final HBox root;
 
         private PasswordReveal(String prompt) {
@@ -270,10 +306,11 @@ public class UserProfileWindow extends Stage {
             tf.setVisible(false);
             tf.setManaged(false);
 
+            Button eye = new Button("👁");
             eye.getStyleClass().addAll("ghost", "icon");
             eye.setFocusTraversable(false);
 
-            eye.setOnAction(e -> {
+            eye.setOnAction(_ -> {
                 boolean showing = tf.isVisible();
                 if (showing) {
                     tf.setVisible(false); tf.setManaged(false);
@@ -291,12 +328,28 @@ public class UserProfileWindow extends Stage {
             root.setAlignment(Pos.CENTER_LEFT);
         }
 
+        /**
+         * Factory method per creare una nuova istanza con il prompt indicato.
+         *
+         * @param prompt testo da usare come placeholder nei campi password
+         * @return nuova istanza di {@link PasswordReveal}
+         */
         static PasswordReveal create(String prompt) { return new PasswordReveal(prompt); }
+
         Node getNode() { return root; }
+
         String getText() { return pf.getText(); }
+
         void clear() { pf.clear(); }
     }
 
+    /**
+     * Apre la finestra di gestione profilo come dialog modale e
+     * blocca l'esecuzione finché l'utente non la chiude.
+     *
+     * @param authService servizio di autenticazione usato per accedere
+     *                    ai dati dell'utente corrente
+     */
     public static void open(AuthService authService) {
         UserProfileWindow w = new UserProfileWindow(authService);
         w.showAndWait();

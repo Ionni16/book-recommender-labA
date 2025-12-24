@@ -10,15 +10,44 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Gestione dei suggerimenti di libri correlati.
- * File: ConsigliLibri.dati
- * Formato: userid;bookId;idSug1,idSug2,...
+ * La classe <code>SuggestionService</code> gestisce i suggerimenti di libri
+ * correlati inseriti dagli utenti.
+ * <p>
+ * I dati sono memorizzati nel file <code>ConsigliLibri.dati</code> con righe
+ * nel formato:
+ * <pre>
+ * userid; bookId; idSug1,idSug2,...
+ * </pre>
+ * Dove:
+ * <ul>
+ *     <li><code>userid</code> è l'identificatore dell'utente;</li>
+ *     <li><code>bookId</code> è l'identificatore del libro “base” a cui si
+ *         riferiscono i suggerimenti;</li>
+ *     <li><code>idSug1,idSug2,...</code> è la lista di ID dei libri suggeriti,
+ *         separati da virgole.</li>
+ * </ul>
+ * Il file <code>Librerie.dati</code> viene utilizzato per verificare che
+ * l'utente possieda realmente i libri che intende suggerire.
+ *
+ * @author ...
+ * @version 1.0
+ * @see bookrecommender.model.Suggestion
  */
 public class SuggestionService {
 
+    /** Percorso del file che contiene i suggerimenti salvati. */
     private final Path fileConsigli;
+
+    /** Percorso del file che contiene le librerie degli utenti. */
     private final Path fileLibrerie;
 
+    /**
+     * Costruisce un nuovo servizio per la gestione dei suggerimenti di libri.
+     *
+     * @param fileConsigli percorso del file <code>ConsigliLibri.dati</code>
+     * @param fileLibrerie percorso del file <code>Librerie.dati</code>
+     *                     utilizzato per i controlli sul possesso dei libri
+     */
     public SuggestionService(Path fileConsigli, Path fileLibrerie) {
         this.fileConsigli = fileConsigli;
         this.fileLibrerie = fileLibrerie;
@@ -27,11 +56,23 @@ public class SuggestionService {
     // ============ API PRINCIPALE ============
 
     /**
-     * Inserisce un nuovo suggerimento.
-     * Requisiti (come da specifiche progetto):
-     *  - max 3 libri suggeriti
-     *  - tutti diversi tra loro e diversi dal libro base
-     *  - tutti presenti nelle librerie dell'utente
+     * Inserisce un nuovo suggerimento di libri correlati per un certo libro base.
+     * <p>
+     * Requisiti (come da specifiche del progetto):
+     * <ul>
+     *     <li>Possono essere suggeriti al massimo 3 libri;</li>
+     *     <li>Tutti i libri suggeriti devono essere diversi tra loro;</li>
+     *     <li>Tutti i libri suggeriti devono essere diversi dal libro base;</li>
+     *     <li>Tutti i libri suggeriti devono essere presenti in almeno una
+     *         libreria dell'utente;</li>
+     *     <li>L'utente può inserire suggerimenti per una certa coppia
+     *         <code>(userid, bookId)</code> una sola volta.</li>
+     * </ul>
+     *
+     * @param s oggetto {@link Suggestion} contenente utente, libro base e lista dei libri suggeriti
+     * @return {@code true} se il suggerimento rispetta tutti i vincoli ed è stato salvato,
+     *         {@code false} in caso contrario (vincoli violati o suggerimento già presente)
+     * @throws Exception in caso di errore di I/O durante lettura o scrittura dei file
      */
     public boolean inserisciSuggerimento(Suggestion s) throws Exception {
         List<Integer> ids = new ArrayList<>(s.getSuggeriti());
@@ -49,7 +90,7 @@ public class SuggestionService {
             }
         }
 
-        // ⚠️ NUOVO: l'utente può suggerire per quel libro UNA SOLA VOLTA
+        // l'utente può suggerire per quel libro UNA SOLA VOLTA
         List<Suggestion> all = loadAll();
         boolean esisteGia = all.stream()
                 .anyMatch(old -> old.getUserid().equals(s.getUserid())
@@ -66,14 +107,32 @@ public class SuggestionService {
 
     // ============ METODI PER LA GUI ============
 
-    /** Tutti i suggerimenti fatti da un utente. */
+    /**
+     * Restituisce tutti i suggerimenti inseriti da un determinato utente.
+     *
+     * @param userid identificatore dell'utente
+     * @return lista di {@link Suggestion} associati a quello <code>userid</code>;
+     *         lista vuota se l'utente non ha suggerito alcun libro
+     * @throws Exception in caso di errore di I/O durante la lettura del file
+     */
     public List<Suggestion> listByUser(String userid) throws Exception {
         return loadAll().stream()
                 .filter(s -> s.getUserid().equals(userid))
                 .collect(Collectors.toList());
     }
 
-    /** Elimina un suggerimento dell'utente per un certo libro base. */
+    /**
+     * Elimina il suggerimento di un utente per un certo libro base.
+     * <p>
+     * L'identificazione del suggerimento avviene tramite la coppia
+     * <code>(userid, bookId)</code>.
+     *
+     * @param userid identificatore dell'utente
+     * @param bookId identificatore del libro base a cui sono associati i suggerimenti
+     * @return {@code true} se il suggerimento è stato trovato e rimosso,
+     *         {@code false} se non esisteva alcun suggerimento per quei parametri
+     * @throws Exception in caso di errore di I/O durante lettura o scrittura del file
+     */
     public boolean deleteSuggestion(String userid, int bookId) throws Exception {
         List<Suggestion> all = loadAll();
         boolean removed = all.removeIf(s ->
@@ -84,6 +143,15 @@ public class SuggestionService {
 
     // ============ IO SU FILE ============
 
+    /**
+     * Carica tutte le righe di suggerimenti dal file dei consigli.
+     * <p>
+     * Le righe vuote o con formato non valido vengono ignorate.
+     *
+     * @return lista di tutte le {@link Suggestion} presenti nel file;
+     *         lista vuota se il file non esiste
+     * @throws Exception in caso di errore di I/O durante la lettura del file
+     */
     private List<Suggestion> loadAll() throws Exception {
         List<Suggestion> list = new ArrayList<>();
         if (!Files.exists(fileConsigli)) return list;
@@ -99,8 +167,9 @@ public class SuggestionService {
                 List<Integer> ids = new ArrayList<>();
                 if (!c[2].isBlank()) {
                     for (String p : c[2].split(",")) {
-                        try { ids.add(Integer.parseInt(p.trim())); }
-                        catch (NumberFormatException ignored) {}
+                        try {
+                            ids.add(Integer.parseInt(p.trim()));
+                        } catch (NumberFormatException ignored) {}
                     }
                 }
                 list.add(new Suggestion(userid, bookId, ids));
@@ -109,6 +178,17 @@ public class SuggestionService {
         return list;
     }
 
+    /**
+     * Sovrascrive completamente il file dei suggerimenti con la lista specificata.
+     * <p>
+     * Ogni suggerimento viene scritto su una riga nel formato:
+     * <pre>
+     * userid; bookId; idSug1,idSug2,...
+     * </pre>
+     *
+     * @param list lista di {@link Suggestion} da salvare
+     * @throws Exception in caso di errore di I/O durante la scrittura del file
+     */
     private void saveAll(List<Suggestion> list) throws Exception {
         Files.createDirectories(fileConsigli.getParent());
         try (BufferedWriter bw = Files.newBufferedWriter(fileConsigli)) {
@@ -122,6 +202,15 @@ public class SuggestionService {
         }
     }
 
+    /**
+     * Effettua il parse sicuro di una stringa in intero.
+     * <p>
+     * In caso di errore (stringa nulla, vuota o non numerica) viene restituito
+     * il valore <code>0</code>.
+     *
+     * @param s stringa da convertire in intero
+     * @return valore intero corrispondente oppure <code>0</code> se il parse fallisce
+     */
     private int parseIntSafe(String s) {
         try { return Integer.parseInt(s.trim()); }
         catch (Exception e) { return 0; }
@@ -129,6 +218,21 @@ public class SuggestionService {
 
     // ============ controllo libreria ============
 
+    /**
+     * Verifica che un utente possieda un certo libro in almeno una delle
+     * proprie librerie.
+     * <p>
+     * Il controllo viene eseguito scorrendo il file <code>Librerie.dati</code>
+     * e cercando lo <code>userid</code> indicato e la presenza del relativo
+     * <code>bookId</code> tra gli ID elencati nelle librerie.
+     *
+     * @param userid identificatore dell'utente
+     * @param bookId identificatore del libro da cercare nelle librerie
+     * @return {@code true} se il libro è presente in almeno una libreria
+     *         dell'utente, {@code false} altrimenti
+     * @throws Exception in caso di errore di I/O durante la lettura del file
+     *                   delle librerie
+     */
     private boolean utenteHaLibroInLibreria(String userid, int bookId) throws Exception {
         if (!Files.exists(fileLibrerie)) return false;
         try (BufferedReader br = Files.newBufferedReader(fileLibrerie)) {

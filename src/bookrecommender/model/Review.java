@@ -123,6 +123,7 @@ public class Review {
      */
     public String getCommento() { return commento;}
 
+
     // --------------- METODO PUBBLICO ---------------
     /**
      * Calcola il voto finale a partire dai voti dei cinque criteri,

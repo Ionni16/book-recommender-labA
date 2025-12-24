@@ -18,7 +18,7 @@ import java.util.List;
  *
  * <p>Formato del file (separatore: ';'):</p>
  * <pre>
- * userid;idLibro;idSuggerito1;idSuggerito2;idSuggerito3
+ * userId; idLibro; idSuggerito1; idSuggerito2; idSuggerito3
  * </pre>
  *
  * <p>Ogni riga rappresenta i consigli di un utente per un libro base.
@@ -32,6 +32,7 @@ public class ConsigliRepository {
     /** Percorso del file su cui vengono scritti/lettI i suggerimenti. */
     private final Path file;
 
+
     // --------------- COSTRUTTORE ---------------
     /**
      * Costruisce un nuovo repository che utilizza il file specificato per memorizzare i suggerimenti.
@@ -42,8 +43,8 @@ public class ConsigliRepository {
         this.file = file;
     }
 
-    // --------------- METODI DI LETTURA ---------------
 
+    // --------------- METODI DI LETTURA ---------------
     /**
      * Restituisce tutte le {@link Suggestion} presenti nel file che si riferiscono al libro con
      * l'identificatore specificato.
@@ -120,8 +121,8 @@ public class ConsigliRepository {
         return out;
     }
 
-    // --------------- METODO DI SCRITTURA ---------------
 
+    // --------------- METODO DI SCRITTURA ---------------
     /**
      * Aggiunge in coda al file una nuova riga corrispondente alla {@link Suggestion} specificata.
      *
