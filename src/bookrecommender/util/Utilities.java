@@ -15,7 +15,7 @@ public class Utilities {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(_ -> close());
+        close.setOnAction(_ -> close.getScene().getWindow().hide());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
