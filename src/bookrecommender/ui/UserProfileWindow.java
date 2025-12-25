@@ -3,6 +3,7 @@ package bookrecommender.ui;
 import bookrecommender.model.User;
 import bookrecommender.service.AuthService;
 
+import bookrecommender.util.Utilities;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -64,7 +65,7 @@ public class UserProfileWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(buildFooter());
+        root.setBottom(Utilities.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 820, 560);
 
@@ -177,8 +178,8 @@ public class UserProfileWindow extends Stage {
         t3.getStyleClass().add("card-title");
         Label t3sub = muted("Scegli una password forte (min 8 caratteri).");
 
-        PasswordReveal pw1 = PasswordReveal.create("Nuova password");
-        PasswordReveal pw2 = PasswordReveal.create("Ripeti nuova password");
+        PasswordManager pw1 = new PasswordManager("Nuova password");
+        PasswordManager pw2 = new PasswordManager("Ripeti nuova password");
 
         Button savePw = new Button("Cambia Password");
         savePw.getStyleClass().add("primary");
@@ -260,19 +261,6 @@ public class UserProfileWindow extends Stage {
         return sp;
     }
 
-    private Node buildFooter() {
-        Label hint = new Label("Suggerimento: usa l’icona 👁 per vedere la password mentre scrivi.");
-        hint.getStyleClass().add("muted");
-
-        Button close = new Button("Chiudi");
-        close.getStyleClass().add("ghost");
-        close.setOnAction(_ -> close());
-
-        HBox bar = new HBox(10, hint, new Pane(), close);
-        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
-        bar.getStyleClass().add("statusbar");
-        return bar;
-    }
 
     private static Label muted(String text) {
         Label l = new Label(text);
@@ -285,63 +273,7 @@ public class UserProfileWindow extends Stage {
         return s == null ? "" : s.trim();
     }
 
-    /**
-     * Componente interno per la gestione dei campi password con pulsante
-     * di "reveal" (mostra/nascondi testo).
-     * <p>
-     * Incapsula un {@link PasswordField}, un {@link TextField} e un pulsante
-     * a forma di icona, esponendo un unico nodo grafico da inserire nel layout.
-     */
-    private static final class PasswordReveal {
-        private final PasswordField pf = new PasswordField();
-        private final TextField tf = new TextField();
-        private final HBox root;
 
-        private PasswordReveal(String prompt) {
-            pf.setPromptText(prompt);
-            tf.setPromptText(prompt);
-
-            tf.textProperty().bindBidirectional(pf.textProperty());
-
-            tf.setVisible(false);
-            tf.setManaged(false);
-
-            Button eye = new Button("👁");
-            eye.getStyleClass().addAll("ghost", "icon");
-            eye.setFocusTraversable(false);
-
-            eye.setOnAction(_ -> {
-                boolean showing = tf.isVisible();
-                if (showing) {
-                    tf.setVisible(false); tf.setManaged(false);
-                    pf.setVisible(true);  pf.setManaged(true);
-                } else {
-                    pf.setVisible(false); pf.setManaged(false);
-                    tf.setVisible(true);  tf.setManaged(true);
-                }
-            });
-
-            StackPane stack = new StackPane(pf, tf);
-            HBox.setHgrow(stack, Priority.ALWAYS);
-
-            root = new HBox(10, stack, eye);
-            root.setAlignment(Pos.CENTER_LEFT);
-        }
-
-        /**
-         * Factory method per creare una nuova istanza con il prompt indicato.
-         *
-         * @param prompt testo da usare come placeholder nei campi password
-         * @return nuova istanza di {@link PasswordReveal}
-         */
-        static PasswordReveal create(String prompt) { return new PasswordReveal(prompt); }
-
-        Node getNode() { return root; }
-
-        String getText() { return pf.getText(); }
-
-        void clear() { pf.clear(); }
-    }
 
     /**
      * Apre la finestra di gestione profilo come dialog modale e

@@ -1,6 +1,6 @@
 package bookrecommender;
 
-import bookrecommender.util.Utilities;
+import bookrecommender.ui.PasswordManager;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
@@ -136,7 +136,7 @@ public class BookRecommender {
             System.out.println("Email non valida.");
             return;
         }
-        if (!Utilities.isStrongPassword(pass)) {
+        if (!PasswordManager.isStrongPassword(pass)) {
             System.out.println("Password troppo debole. Minimo 8 caratteri, con lettere e numeri.");
             return;
         }

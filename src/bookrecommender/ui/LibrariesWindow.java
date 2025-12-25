@@ -6,6 +6,7 @@ import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.LibraryService;
 
+import bookrecommender.util.Utilities;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -86,7 +87,7 @@ public class LibrariesWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(buildFooter());
+        root.setBottom(Utilities.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 980, 560);
         URL css = getClass().getResource("app.css");
@@ -128,9 +129,10 @@ public class LibrariesWindow extends Stage {
         cCount.setCellValueFactory(v -> new SimpleIntegerProperty(v.getValue().getBookIds().size()));
         cCount.setMaxWidth(110);
 
-        tblLibs.getColumns().addAll(cName, cCount);
+        tblLibs.getColumns().add(cName);
+        tblLibs.getColumns().add(cCount);
 
-        tblLibs.getSelectionModel().selectedItemProperty().addListener((obs, oldLib, newLib) -> {
+        tblLibs.getSelectionModel().selectedItemProperty().addListener((ignoredObs, ignoredOld, newLib) -> {
             if (newLib != null) loadBooksOf(newLib);
         });
 
@@ -171,7 +173,8 @@ public class LibrariesWindow extends Stage {
         TableColumn<Book, String> cTitle = new TableColumn<>("Titolo");
         cTitle.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getTitolo()));
 
-        tblBooks.getColumns().addAll(cId, cTitle);
+        tblBooks.getColumns().add(cId);
+        tblBooks.getColumns().add(cTitle);
 
         Button btnRemove = new Button("Rimuovi libro");
         btnRemove.getStyleClass().add("danger");
@@ -196,19 +199,6 @@ public class LibrariesWindow extends Stage {
         return wrap;
     }
 
-    private Node buildFooter() {
-        Label hint = new Label("Suggerimento: rinomina e salva solo se hai modificato qualcosa.");
-        hint.getStyleClass().add("muted");
-
-        Button close = new Button("Chiudi");
-        close.getStyleClass().add("ghost");
-        close.setOnAction(_ -> close());
-
-        HBox bar = new HBox(10, hint, new Pane(), close);
-        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
-        bar.getStyleClass().add("statusbar");
-        return bar;
-    }
 
     private void loadLibraries() {
         String user = authService.getCurrentUserid();
@@ -282,21 +272,14 @@ public class LibrariesWindow extends Stage {
         d.setHeaderText(null);
         d.setContentText("Nuovo nome (min 5 caratteri):");
 
-        Optional<String> r = d.showAndWait();
-        if (r.isEmpty()) return;
 
-        String name = r.get().trim();
-        if (name.length() < 5) {
-            FxUtil.error(this, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
-            return;
-        }
-        if (name.equals(sel.getNome())) {
+        if (checkLibrary().equals(sel.getNome())) {
             FxUtil.info(this, "Nessuna modifica", "Il nome è identico: nessuna modifica salvata.");
             return;
         }
 
         try {
-            Library updated = new Library(sel.getUserid(), name, sel.getBookIds());
+            Library updated = new Library(sel.getUserid(), checkLibrary(), sel.getBookIds());
             boolean ok = libraryService.saveLibrary(updated);
             if (!ok) throw new IllegalStateException("Salvataggio fallito.");
             loadLibraries();
@@ -356,5 +339,22 @@ public class LibrariesWindow extends Stage {
     public static void open(AuthService authService, LibraryService libraryService, LibriRepository repo) {
         LibrariesWindow w = new LibrariesWindow(authService, libraryService, repo);
         w.showAndWait();
+    }
+
+
+    private String checkLibrary(){
+        TextInputDialog d = new TextInputDialog();
+        d.initOwner(this);
+        d.setTitle("Nuova libreria");
+        d.setHeaderText(null);
+        d.setContentText("Nome libreria (min 5 caratteri):");
+        Optional<String> r = d.showAndWait();
+        String name = "";
+
+        if (r.isPresent()) name = r.get().trim();
+        if (name.length() < 6) {
+            FxUtil.error(this, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
+        }
+        return name;
     }
 }

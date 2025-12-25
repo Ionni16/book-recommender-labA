@@ -6,6 +6,7 @@ import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.ReviewService;
 
+import bookrecommender.util.Utilities;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -80,7 +81,7 @@ public class ReviewsWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(buildFooter());
+        root.setBottom(Utilities.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 980, 560);
 
@@ -154,19 +155,6 @@ public class ReviewsWindow extends Stage {
         return wrap;
     }
 
-    private Node buildFooter() {
-        Label hint = new Label("Nota: per creare/modificare valutazioni usa i comandi previsti nella tua UI principale.");
-        hint.getStyleClass().add("muted");
-
-        Button close = new Button("Chiudi");
-        close.getStyleClass().add("ghost");
-        close.setOnAction(_ -> close());
-
-        HBox bar = new HBox(10, hint, new Pane(), close);
-        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
-        bar.getStyleClass().add("statusbar");
-        return bar;
-    }
 
     private void load() {
         String user = authService.getCurrentUserid();

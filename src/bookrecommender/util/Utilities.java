@@ -1,14 +1,25 @@
 package bookrecommender.util;
 
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+
 public class Utilities {
 
-    public static boolean isStrongPassword(String pw) {
-        if (pw == null || pw.length() < 8) return false;
-        boolean hasLetter = false, hasDigit = false;
-        for (char c : pw.toCharArray()) {
-            if (Character.isLetter(c)) hasLetter = true;
-            if (Character.isDigit(c)) hasDigit = true;
-        }
-        return hasLetter && hasDigit;
+    public static Node buildFooter() {
+        Label hint = new Label("Suggerimento: usa l’icona 👁 per vedere la password mentre scrivi.");
+        hint.getStyleClass().add("muted");
+
+        Button close = new Button("Chiudi");
+        close.getStyleClass().add("ghost");
+        close.setOnAction(_ -> close());
+
+        HBox bar = new HBox(10, hint, new Pane(), close);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("statusbar");
+        return bar;
     }
 }

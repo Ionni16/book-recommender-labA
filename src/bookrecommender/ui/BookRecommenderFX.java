@@ -426,7 +426,7 @@ public class BookRecommenderFX extends Application {
 
         tbl.getColumns().setAll(cId, cTitle, cAuthor, cYear);
 
-    
+
 
 
         tbl.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -1244,83 +1244,6 @@ public class BookRecommenderFX extends Application {
         return sp;
     }
 
-    private ComboBox<Book> bookCombo(List<Book> candidates, Set<Integer> myLibraryIds) {
-    // base list
-        ObservableList<Book> base = FXCollections.observableArrayList(candidates);
-
-        // filtered list (ricerca live)
-        FilteredList<Book> filtered = new FilteredList<>(base, b -> true);
-
-        // sorted: prima libri in libreria, poi titolo
-        SortedList<Book> sorted = new SortedList<>(filtered);
-        sorted.setComparator((a, b) -> {
-            boolean aMine = myLibraryIds != null && myLibraryIds.contains(a.getId());
-            boolean bMine = myLibraryIds != null && myLibraryIds.contains(b.getId());
-            if (aMine != bMine) return aMine ? -1 : 1; // mie librerie prima
-            String at = a.getTitolo() == null ? "" : a.getTitolo();
-            String bt = b.getTitolo() == null ? "" : b.getTitolo();
-            return at.compareToIgnoreCase(bt);
-        });
-
-        ComboBox<Book> cb = new ComboBox<>(sorted);
-        cb.setMaxWidth(Double.MAX_VALUE);
-        cb.setEditable(true);
-
-        // converter: testo mostrato nell’editor quando selezioni un libro
-        cb.setConverter(new StringConverter<>() {
-            @Override public String toString(Book b) {
-                if (b == null) return "";
-                return b.getTitolo() == null ? "" : b.getTitolo();
-            }
-            @Override public Book fromString(String s) {
-                // non creiamo Book da stringa: serve solo per filtrare
-                return cb.getValue();
-            }
-        });
-
-        cb.getEditor().setPromptText("Cerca un libro…");
-
-        // cell factory: testo leggibile + badge "(in libreria)" per chiarezza
-        cb.setCellFactory(list -> new ListCell<>() {
-            @Override protected void updateItem(Book item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    return;
-                }
-                boolean mine = myLibraryIds != null && myLibraryIds.contains(item.getId());
-                String title = item.getTitolo() == null ? "" : item.getTitolo();
-                setText(mine ? (title + "   •   (nelle mie librerie)") : title);
-            }
-        });
-
-        cb.setButtonCell(new ListCell<>() {
-            @Override protected void updateItem(Book item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) setText("Seleziona…");
-                else setText(item.getTitolo());
-            }
-        });
-
-        // filtro live quando scrivi
-        cb.getEditor().textProperty().addListener((obs, old, txt) -> {
-            String q = txt == null ? "" : txt.trim().toLowerCase();
-            if (q.isEmpty()) {
-                filtered.setPredicate(b -> true);
-                return;
-            }
-            filtered.setPredicate(b -> {
-                String title = b.getTitolo() == null ? "" : b.getTitolo().toLowerCase();
-                // match anche per id (comodo)
-                String id = String.valueOf(b.getId());
-                return title.contains(q) || id.contains(q);
-            });
-            // apri dropdown mentre digiti (feel web-app)
-            if (!cb.isShowing()) cb.show();
-        });
-
-        return cb;
-    }
 
 
     // ---------------- Reserved / Auth ----------------
@@ -1373,7 +1296,7 @@ public class BookRecommenderFX extends Application {
         TextField user = new TextField();
         user.setPromptText("Username");
 
-        PasswordReveal pr = PasswordReveal.create("Password");
+        PasswordManager pr = new PasswordManager("Password");
 
         Button btn = new Button("Accedi");
         btn.getStyleClass().add("primary");
@@ -1419,8 +1342,8 @@ public class BookRecommenderFX extends Application {
         TextField email = new TextField(); email.setPromptText("email@dominio.it");
         TextField username = new TextField(); username.setPromptText("Username (5-20)");
 
-        PasswordReveal pw = PasswordReveal.create("Password (min 8, lettere+numeri)");
-        PasswordReveal pw2 = PasswordReveal.create("Ripeti password");
+        PasswordManager pw = new PasswordManager("Password (min 8, lettere+numeri)");
+        PasswordManager pw2 = new PasswordManager("Ripeti password");
 
         Button btn = new Button("Crea account e accedi");
         btn.getStyleClass().add("primary");
@@ -1444,7 +1367,7 @@ public class BookRecommenderFX extends Application {
                     throw new IllegalArgumentException("Codice fiscale non valido (attesi 16 caratteri alfanumerici).");
                 if (!EMAIL_RX.matcher(em).matches())
                     throw new IllegalArgumentException("Email non valida.");
-                if (!Utilities.isStrongPassword(p1))
+                if (!PasswordManager.isStrongPassword(p1))
                     throw new IllegalArgumentException("Password troppo debole (min 8, almeno una lettera e un numero).");
                 if (!Objects.equals(p1, p2))
                     throw new IllegalArgumentException("Le password non corrispondono.");
@@ -1531,60 +1454,4 @@ public class BookRecommenderFX extends Application {
         return row;
     }
 
-    // ---------------- Password reveal component ----------------
-
-    private static final class PasswordReveal {
-        private final PasswordField pf = new PasswordField();
-        private final TextField tf = new TextField();
-        private final Button eye = new Button("👁");
-        private final HBox root;
-
-        private PasswordReveal(String prompt) {
-            pf.setPromptText(prompt);
-            tf.setPromptText(prompt);
-
-            tf.textProperty().bindBidirectional(pf.textProperty());
-
-            tf.setVisible(false);
-            tf.setManaged(false);
-
-            eye.getStyleClass().addAll("ghost", "icon");
-            eye.setFocusTraversable(false);
-
-            eye.setOnAction(_ -> {
-                boolean showing = tf.isVisible();
-                if (showing) {
-                    tf.setVisible(false); tf.setManaged(false);
-                    pf.setVisible(true);  pf.setManaged(true);
-                } else {
-                    pf.setVisible(false); pf.setManaged(false);
-                    tf.setVisible(true);  tf.setManaged(true);
-                }
-            });
-
-            StackPane stack = new StackPane(pf, tf);
-            HBox.setHgrow(stack, Priority.ALWAYS);
-
-            root = new HBox(10, stack, eye);
-            root.setAlignment(Pos.CENTER_LEFT);
-        }
-
-        static PasswordReveal create(String prompt) { return new PasswordReveal(prompt); }
-        Node getNode() { return root; }
-        String getText() { return pf.getText(); }
-    }
-
-
-    /**
-     * Metodo <code>main</code> dell'applicazione.
-     * <p>
-     * Delega l'avvio al runtime JavaFX tramite la chiamata a
-     * {@link #launch(String...)} che, a sua volta, invoca il metodo
-     * {@link #start(javafx.stage.Stage)}.
-     *
-     * @param args argomenti della riga di comando (non utilizzati)
-     */
-    public static void main(String[] args) {
-        launch(args);
-    }
 }
