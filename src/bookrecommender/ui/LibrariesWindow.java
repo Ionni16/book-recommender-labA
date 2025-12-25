@@ -130,7 +130,9 @@ public class LibrariesWindow extends Stage {
 
         tblLibs.getColumns().addAll(cName, cCount);
 
-        tblLibs.getSelectionModel().selectedItemProperty().addListener((n) -> loadBooksOf((Library) n));
+        tblLibs.getSelectionModel().selectedItemProperty().addListener((obs, oldLib, newLib) -> {
+            if (newLib != null) loadBooksOf(newLib);
+        });
 
         Button btnNew = new Button("Crea libreria…");
         btnNew.getStyleClass().add("primary");

@@ -1,5 +1,6 @@
 package bookrecommender;
 
+import bookrecommender.util.Utilities;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
@@ -38,11 +39,8 @@ public class BookRecommender {
      * quindi mostra un menù testuale che rimane attivo finché l'utente
      * non sceglie l'opzione di uscita.
      *
-     * @param args argomenti da riga di comando (non utilizzati)
-     * @throws Exception in caso di errori imprevisti durante l'accesso ai file
-     *                   o l'inizializzazione dei servizi
      */
-    public static void main(String[] args) throws Exception {
+    public static void runCli() {
         Scanner in = new Scanner(System.in);
         Path dataDir = Path.of("data");
 
@@ -60,7 +58,7 @@ public class BookRecommender {
         // Servizi
         SearchService search = new SearchService(libriRepo);
         AuthService auth = new AuthService(dataDir.resolve("UtentiRegistrati.dati"));
-        LibraryService libraryService = new LibraryService(dataDir.resolve("Librerie.dati"), libriRepo);
+        LibraryService libraryService = new LibraryService(dataDir.resolve("Librerie.dati"));
         ReviewService reviewService = new ReviewService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("Librerie.dati"));
         SuggestionService suggestionService = new SuggestionService(dataDir.resolve("ConsigliLibri.dati"), dataDir.resolve("Librerie.dati"));
         AggregationService agg = new AggregationService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("ConsigliLibri.dati"));
@@ -88,9 +86,9 @@ public class BookRecommender {
                 case "3": doSearchByAuthorYear(in, search); break;
                 case "4": doRegister(in, auth); break;
                 case "5": doLogin(in, auth); break;
-                case "6": doLibrary(in, auth, libraryService, libriRepo); break;
-                case "7": doReview(in, auth, reviewService, libriRepo); break;
-                case "8": doSuggest(in, auth, suggestionService, libriRepo); break;
+                case "6": doLibrary(in, auth, libraryService); break;
+                case "7": doReview(in, auth, reviewService); break;
+                case "8": doSuggest(in, auth, suggestionService); break;
                 case "9": doVisualizza(in, search, agg, libriRepo); break;
                 case "L": case "l": auth.logout(); System.out.println("Logout eseguito."); break;
                 case "0": return;
@@ -138,7 +136,7 @@ public class BookRecommender {
             System.out.println("Email non valida.");
             return;
         }
-        if (!isStrongPassword(pass)) {
+        if (!Utilities.isStrongPassword(pass)) {
             System.out.println("Password troppo debole. Minimo 8 caratteri, con lettere e numeri.");
             return;
         }
@@ -169,7 +167,7 @@ public class BookRecommender {
     }
 
     // === Librerie ===
-    private static void doLibrary(Scanner in, AuthService auth, LibraryService libraryService, LibriRepository libriRepo) {
+    private static void doLibrary(Scanner in, AuthService auth, LibraryService libraryService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
@@ -197,18 +195,18 @@ public class BookRecommender {
     }
 
     // === Valutazioni ===
-    private static void doReview(Scanner in, AuthService auth, ReviewService reviewService, LibriRepository libriRepo) {
+    private static void doReview(Scanner in, AuthService auth, ReviewService reviewService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
         try {
             System.out.print("idLibro da valutare: ");
             int id = Integer.parseInt(in.nextLine().trim());
-            int stile = askInt(in, "Stile (1..5): ", 1, 5);
-            int contenuto = askInt(in, "Contenuto (1..5): ", 1, 5);
-            int gradev = askInt(in, "Gradevolezza (1..5): ", 1, 5);
-            int orig = askInt(in, "Originalità (1..5): ", 1, 5);
-            int ed = askInt(in, "Edizione (1..5): ", 1, 5);
+            int stile = askInt(in, "Stile (1..5): ");
+            int contenuto = askInt(in, "Contenuto (1..5): ");
+            int gradev = askInt(in, "Gradevolezza (1..5): ");
+            int orig = askInt(in, "Originalità (1..5): ");
+            int ed = askInt(in, "Edizione (1..5): ");
             System.out.print("Commento (max 256, opzionale): ");
             String comm = in.nextLine();
             if (comm != null && comm.length() > 256) { System.out.println("Commento troppo lungo."); return; }
@@ -226,7 +224,7 @@ public class BookRecommender {
     }
 
     // === Suggerimenti ===
-    private static void doSuggest(Scanner in, AuthService auth, SuggestionService suggestionService, LibriRepository libriRepo) {
+    private static void doSuggest(Scanner in, AuthService auth, SuggestionService suggestionService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
@@ -319,11 +317,11 @@ public class BookRecommender {
         }
         return out;
     }
-    private static int askInt(Scanner in, String prompt, int min, int max) {
+    private static int askInt(Scanner in, String prompt) {
         System.out.print(prompt);
         try {
             int x = Integer.parseInt(in.nextLine().trim());
-            if (x < min || x > max) throw new NumberFormatException();
+            if (x < 1 || x > 5) throw new NumberFormatException();
             return x;
         } catch (NumberFormatException e) {
             System.out.println("Valore non valido. Annullato.");
@@ -334,14 +332,6 @@ public class BookRecommender {
     private static final Pattern EMAIL_RX =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
-    private static boolean isStrongPassword(String pw) {
-        if (pw == null || pw.length() < 8) return false;
-        boolean hasLetter = false, hasDigit = false;
-        for (char c : pw.toCharArray()) {
-            if (Character.isLetter(c)) hasLetter = true;
-            if (Character.isDigit(c)) hasDigit = true;
-        }
-        return hasLetter && hasDigit;
-    }
+
 
 }

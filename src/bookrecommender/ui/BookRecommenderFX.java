@@ -1,5 +1,6 @@
 package bookrecommender.ui;
 
+import bookrecommender.util.Utilities;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
@@ -113,15 +114,7 @@ public class BookRecommenderFX extends Application {
     private static final Pattern EMAIL_RX = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern CF_RX = Pattern.compile("^[A-Za-z0-9]{16}$");
 
-    private static boolean isStrongPassword(String pw) {
-        if (pw == null || pw.length() < 8) return false;
-        boolean hasLetter = false, hasDigit = false;
-        for (char c : pw.toCharArray()) {
-            if (Character.isLetter(c)) hasLetter = true;
-            if (Character.isDigit(c)) hasDigit = true;
-        }
-        return hasLetter && hasDigit;
-    }
+
 
 
     /**
@@ -153,7 +146,7 @@ public class BookRecommenderFX extends Application {
 
         searchService      = new SearchService(libriRepo);
         authService        = new AuthService(dataDir.resolve("UtentiRegistrati.dati"));
-        libraryService     = new LibraryService(dataDir.resolve("Librerie.dati"), libriRepo);
+        libraryService     = new LibraryService(dataDir.resolve("Librerie.dati"));
         reviewService      = new ReviewService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("Librerie.dati"));
         suggestionService  = new SuggestionService(dataDir.resolve("ConsigliLibri.dati"), dataDir.resolve("Librerie.dati"));
         aggregationService = new AggregationService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("ConsigliLibri.dati"));
@@ -212,21 +205,21 @@ public class BookRecommenderFX extends Application {
 
         btnLogin = new Button("Accedi");
         btnLogin.getStyleClass().add("primary");
-        btnLogin.setOnAction(e -> openLogin(owner));
+        btnLogin.setOnAction(_ -> openLogin(owner));
 
         btnRegister = new Button("Registrati");
-        btnRegister.setOnAction(e -> openRegister(owner));
+        btnRegister.setOnAction(_ -> openRegister(owner));
 
         btnLogout = new Button("Logout");
         btnLogout.getStyleClass().add("ghost");
-        btnLogout.setOnAction(e -> {
+        btnLogout.setOnAction(_ -> {
             authService.logout();
             refreshUserUi();
             FxUtil.toast(owner.getScene(), "Logout effettuato");
         });
 
         btnArea = new Button("Area riservata");
-        btnArea.setOnAction(e -> openReservedHome(owner));
+        btnArea.setOnAction(_ -> openReservedHome(owner));
 
         HBox right = new HBox(10, lblUserBadge, btnArea, btnLogin, btnRegister, btnLogout);
         right.setAlignment(Pos.CENTER_RIGHT);
@@ -329,12 +322,12 @@ public class BookRecommenderFX extends Application {
         Button btnSearch = new Button("Cerca");
         btnSearch.getStyleClass().add("primary");
         btnSearch.setMaxWidth(Double.MAX_VALUE);
-        btnSearch.setOnAction(e -> doSearch(owner));
+        btnSearch.setOnAction(_ -> doSearch(owner));
 
         Button btnClear = new Button("Reset");
         btnClear.getStyleClass().add("ghost");
         btnClear.setMaxWidth(Double.MAX_VALUE);
-        btnClear.setOnAction(e -> {
+        btnClear.setOnAction(_ -> {
             tfTitle.clear();
             tfAuthor.clear();
             ckOnlyMyLibraries.setSelected(false);
@@ -451,7 +444,7 @@ public class BookRecommenderFX extends Application {
 
         Button btnRefresh = new Button("Ricarica (F5)");
         btnRefresh.getStyleClass().add("ghost");
-        btnRefresh.setOnAction(e -> refresh(owner));
+        btnRefresh.setOnAction(_ -> refresh(owner));
 
         HBox actions = new HBox(10, btnRefresh);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -518,7 +511,7 @@ public class BookRecommenderFX extends Application {
         btnAdd.getStyleClass().add("primary");
         btnAdd.setMaxWidth(Double.MAX_VALUE);
 
-        btnCreate.setOnAction(e -> {
+        btnCreate.setOnAction(_ -> {
             String name = tfNew.getText() == null ? "" : tfNew.getText().trim();
             if (name.length() < 5) {
                 FxUtil.error(owner, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
@@ -539,7 +532,7 @@ public class BookRecommenderFX extends Application {
             }
         });
 
-        btnAdd.setOnAction(e -> {
+        btnAdd.setOnAction(_ -> {
             Library sel = cb.getValue();
             if (sel == null) {
                 FxUtil.error(owner, "Selezione mancante", "Seleziona una libreria.");
@@ -640,7 +633,7 @@ public class BookRecommenderFX extends Application {
         Button btnAddToLibrary = new Button("Aggiungi alla mia libreria");
         btnAddToLibrary.getStyleClass().add("primary");
         btnAddToLibrary.setMaxWidth(Double.MAX_VALUE);
-        btnAddToLibrary.setOnAction(e -> {
+        btnAddToLibrary.setOnAction(_ -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openAddToLibraryDialog(owner, selectedBook);
@@ -650,7 +643,7 @@ public class BookRecommenderFX extends Application {
         btnRateThis = new Button("Valuta questo libro");
         btnRateThis.getStyleClass().add("ghost");
         btnRateThis.setMaxWidth(Double.MAX_VALUE);
-        btnRateThis.setOnAction(e -> {
+        btnRateThis.setOnAction(_ -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openReviewEditor(owner, selectedBook);
@@ -659,7 +652,7 @@ public class BookRecommenderFX extends Application {
         btnSuggestThis = new Button("Consiglia libri");
         btnSuggestThis.getStyleClass().add("ghost");
         btnSuggestThis.setMaxWidth(Double.MAX_VALUE);
-        btnSuggestThis.setOnAction(e -> {
+        btnSuggestThis.setOnAction(_ -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openSuggestionEditor(owner, selectedBook);
@@ -669,7 +662,7 @@ public class BookRecommenderFX extends Application {
         Button btnOpenReviewList = new Button("Le mie valutazioni…");
         btnOpenReviewList.getStyleClass().add("ghost");
         btnOpenReviewList.setMaxWidth(Double.MAX_VALUE);
-        btnOpenReviewList.setOnAction(e -> {
+        btnOpenReviewList.setOnAction(_ -> {
             if (ensureLoggedIn(owner) == null) return;
             ReviewsWindow.open(authService, reviewService, libriRepo);
         });
@@ -677,7 +670,7 @@ public class BookRecommenderFX extends Application {
         Button btnOpenSugList = new Button("I miei consigli…");
         btnOpenSugList.getStyleClass().add("ghost");
         btnOpenSugList.setMaxWidth(Double.MAX_VALUE);
-        btnOpenSugList.setOnAction(e -> {
+        btnOpenSugList.setOnAction(_ -> {
             if (ensureLoggedIn(owner) == null) return;
             SuggestionsWindow.open(authService, suggestionService, libriRepo);
         });
@@ -876,7 +869,7 @@ public class BookRecommenderFX extends Application {
                     Button link = new Button(sb.getTitolo() + "  (" + count + ")");
                     link.getStyleClass().add("ghost");
                     link.setMaxWidth(Double.MAX_VALUE);
-                    link.setOnAction(e -> {
+                    link.setOnAction(_ -> {
                         Optional<Book> match = data.stream().filter(x -> x.getId() == sb.getId()).findFirst();
                         match.ifPresentOrElse(
                                 m -> tbl.getSelectionModel().select(m),
@@ -982,7 +975,7 @@ public class BookRecommenderFX extends Application {
         save.getStyleClass().add("primary");
         save.setMaxWidth(Double.MAX_VALUE);
 
-        save.setOnAction(e -> {
+        save.setOnAction(_ -> {
             try {
                 String comm = comment.getText() == null ? "" : comment.getText().trim();
                 if (comm.length() > 256) throw new IllegalArgumentException("Commento troppo lungo (max 256).");
@@ -1114,7 +1107,7 @@ public class BookRecommenderFX extends Application {
         c2.valueProperty().addListener((obs, o, n) -> enforceNoDuplicates.run());
         c3.valueProperty().addListener((obs, o, n) -> enforceNoDuplicates.run());
 
-        save.setOnAction(e -> {
+        save.setOnAction(_ -> {
             try {
                 LinkedHashSet<Integer> ids = new LinkedHashSet<>();
                 if (c1.getValue() != null) ids.add(c1.getValue().getId());
@@ -1349,19 +1342,19 @@ public class BookRecommenderFX extends Application {
         Button btnLibs = new Button("Le mie librerie");
         btnLibs.getStyleClass().add("primary");
         btnLibs.setMaxWidth(Double.MAX_VALUE);
-        btnLibs.setOnAction(e -> LibrariesWindow.open(authService, libraryService, libriRepo));
+        btnLibs.setOnAction(_ -> LibrariesWindow.open(authService, libraryService, libriRepo));
 
         Button btnReviews = new Button("Le mie valutazioni");
         btnReviews.setMaxWidth(Double.MAX_VALUE);
-        btnReviews.setOnAction(e -> ReviewsWindow.open(authService, reviewService, libriRepo));
+        btnReviews.setOnAction(_ -> ReviewsWindow.open(authService, reviewService, libriRepo));
 
         Button btnSug = new Button("I miei consigli");
         btnSug.setMaxWidth(Double.MAX_VALUE);
-        btnSug.setOnAction(e -> SuggestionsWindow.open(authService, suggestionService, libriRepo));
+        btnSug.setOnAction(_ -> SuggestionsWindow.open(authService, suggestionService, libriRepo));
 
         Button btnAcc = new Button("Account");
         btnAcc.setMaxWidth(Double.MAX_VALUE);
-        btnAcc.setOnAction(e -> UserProfileWindow.open(authService));
+        btnAcc.setOnAction(_ -> UserProfileWindow.open(authService));
 
         VBox box = new VBox(10, title, sub, new Separator(), btnLibs, btnReviews, btnSug, btnAcc);
         box.getStyleClass().add("card");
@@ -1386,7 +1379,7 @@ public class BookRecommenderFX extends Application {
         btn.getStyleClass().add("primary");
         btn.setMaxWidth(Double.MAX_VALUE);
 
-        btn.setOnAction(e -> {
+        btn.setOnAction(_ -> {
             try {
                 boolean ok = authService.login(safe(user.getText()), pr.getText());
                 if (!ok) {
@@ -1433,7 +1426,7 @@ public class BookRecommenderFX extends Application {
         btn.getStyleClass().add("primary");
         btn.setMaxWidth(Double.MAX_VALUE);
 
-        btn.setOnAction(e -> {
+        btn.setOnAction(_ -> {
             try {
                 String n = safe(nome.getText());
                 String c = safe(cognome.getText());
@@ -1451,7 +1444,7 @@ public class BookRecommenderFX extends Application {
                     throw new IllegalArgumentException("Codice fiscale non valido (attesi 16 caratteri alfanumerici).");
                 if (!EMAIL_RX.matcher(em).matches())
                     throw new IllegalArgumentException("Email non valida.");
-                if (!isStrongPassword(p1))
+                if (!Utilities.isStrongPassword(p1))
                     throw new IllegalArgumentException("Password troppo debole (min 8, almeno una lettera e un numero).");
                 if (!Objects.equals(p1, p2))
                     throw new IllegalArgumentException("Le password non corrispondono.");
@@ -1558,7 +1551,7 @@ public class BookRecommenderFX extends Application {
             eye.getStyleClass().addAll("ghost", "icon");
             eye.setFocusTraversable(false);
 
-            eye.setOnAction(e -> {
+            eye.setOnAction(_ -> {
                 boolean showing = tf.isVisible();
                 if (showing) {
                     tf.setVisible(false); tf.setManaged(false);

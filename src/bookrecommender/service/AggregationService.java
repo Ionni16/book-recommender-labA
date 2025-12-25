@@ -50,11 +50,11 @@ public class AggregationService {
      * <p>
      * Contiene:
      * <ul>
-     *     <li>il numero totale di valutazioni disponibili;</li>
-     *     <li>la distribuzione dei voti finali;</li>
-     *     <li>le medie per ciascun criterio di valutazione
+     *     <li>Il numero totale di valutazioni disponibili;</li>
+     *     <li>La distribuzione dei voti finali;</li>
+     *     <li>Le medie per ciascun criterio di valutazione
      *         (stile, contenuto, gradevolezza, originalità, edizione);</li>
-     *     <li>la media complessiva del voto finale.</li>
+     *     <li>La media complessiva del voto finale.</li>
      * </ul>
      */
     public static class ReviewStats {
@@ -68,7 +68,7 @@ public class AggregationService {
          * caso corrisponde all'ordinamento per frequenza (dal più suggerito
          * al meno suggerito).
          */
-        public Map<Integer,Integer> distribuzioneVoti = new TreeMap<>(); // votoFinale  count
+        public final Map<Integer,Integer> distribuzioneVoti = new TreeMap<>(); // votoFinale  count
         public double mediaStile, mediaContenuto, mediaGradevolezza, mediaOriginalita, mediaEdizione;
         public double mediaVotoFinale; //  NUOVO: media totale (voto finale)
     }
@@ -92,11 +92,11 @@ public class AggregationService {
      * <p>
      * Le statistiche includono:
      * <ul>
-     *     <li>numero totale di valutazioni;</li>
-     *     <li>distribuzione dei voti finali;</li>
-     *     <li>medie per ciascun criterio (stile, contenuto, gradevolezza,
+     *     <li>Numero totale di valutazioni;</li>
+     *     <li>Distribuzione dei voti finali;</li>
+     *     <li>Medie per ciascun criterio (stile, contenuto, gradevolezza,
      *         originalità, edizione);</li>
-     *     <li>media complessiva del voto finale.</li>
+     *     <li>Media complessiva del voto finale.</li>
      * </ul>
      * Se non esistono valutazioni per il libro indicato, viene restituita
      * una struttura con conteggio pari a zero e campi numerici a valore

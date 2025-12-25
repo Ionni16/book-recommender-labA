@@ -4,6 +4,7 @@ import bookrecommender.model.User;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -272,7 +273,7 @@ public class AuthService {
      */
     public static String sha256(String s) throws Exception {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] bytes = md.digest(s.getBytes("UTF-8"));
+        byte[] bytes = md.digest(s.getBytes(StandardCharsets.UTF_8));
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) sb.append(String.format("%02x", b));
         return sb.toString();

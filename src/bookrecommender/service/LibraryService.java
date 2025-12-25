@@ -1,7 +1,6 @@
 package bookrecommender.service;
 
 import bookrecommender.model.Library;
-import bookrecommender.repo.LibriRepository;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -40,10 +39,9 @@ public class LibraryService {
      * Costruisce un nuovo servizio di gestione delle librerie personali.
      *
      * @param file      percorso del file <code>Librerie.dati</code>
-     * @param libriRepo repository dei libri disponibile per eventuali utilizzi
-     *                  da parte della GUI o di altri servizi
+     *
      */
-    public LibraryService(Path file, LibriRepository libriRepo) {
+    public LibraryService(Path file) {
         this.file = file;
         // non usato per IO ma comodo
     }
@@ -90,7 +88,7 @@ public class LibraryService {
         }
         if (!updated) newAll.add(lib);
         saveAll(newAll);
-        return true;
+        return updated;
     }
 
 
