@@ -48,3 +48,7 @@ Il progetto è stato realizzato come attività di laboratorio universitario.
 - Ionut Puiu
 - Matteo Ferrario
 - Hamdi Kebeli
+
+## License
+This project is licensed under the MIT License.
+
