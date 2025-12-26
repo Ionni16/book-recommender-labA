@@ -1,3 +1,6 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+
 <p align="center">
   <img src="docs/logoInsubria.svg" width="200" alt="Logo Università">
 </p>
