@@ -46,7 +46,7 @@ Il progetto è stato realizzato come attività di laboratorio universitario.
 - `ui` → finestre e componenti JavaFX
 - `util` → classi di utilità e supporto
 - `data` → file `.dati` usati per la persistenza
-- `docs` → documentazione e risorse (manuali, screenshot, ecc.)
+- `docs` → documentazione e risorse.
 
 ---
 
