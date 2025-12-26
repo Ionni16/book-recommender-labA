@@ -34,7 +34,7 @@ Il progetto è stato realizzato come attività di laboratorio universitario.
 ## Avvio del progetto
 1. Importare il progetto in **IntelliJ IDEA**
 2. Assicurarsi di avere **Java 17** installato
-3. Configurare il **JavaFX SDK nel progetto
+3. Configurare il **JavaFX SDK** nel progetto
 4. Avviare la classe `Main` oppure `BookRecommenderFX`
 
 ---
