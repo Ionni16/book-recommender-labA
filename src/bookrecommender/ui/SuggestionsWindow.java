@@ -6,7 +6,6 @@ import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.SuggestionService;
 
-import bookrecommender.util.Utilities;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -82,7 +81,7 @@ public class SuggestionsWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(Utilities.buildFooter());
+        root.setBottom(FxUtil.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 980, 560);
 

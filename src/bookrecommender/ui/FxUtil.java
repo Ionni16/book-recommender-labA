@@ -3,12 +3,10 @@ package bookrecommender.ui;
 import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -143,6 +141,20 @@ public final class FxUtil {
         return wrap;
     }
 
+
+    public static Node buildFooter() {
+        Label hint = new Label("Suggerimento: usa l’icona 👁 per vedere la password mentre scrivi.");
+        hint.getStyleClass().add("muted");
+
+        Button close = new Button("Chiudi");
+        close.getStyleClass().add("ghost");
+        close.setOnAction(_ -> close.getScene().getWindow().hide());
+
+        HBox bar = new HBox(10, hint, new Pane(), close);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("statusbar");
+        return bar;
+    }
 
 
 }

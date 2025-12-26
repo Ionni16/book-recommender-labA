@@ -475,25 +475,7 @@ public class BookRecommenderFX extends Application {
         Label sub = new Label(book.getTitolo());
         sub.getStyleClass().add("subtitle");
 
-        ComboBox<Library> cb = new ComboBox<>();
-        cb.setMaxWidth(Double.MAX_VALUE);
-
-        cb.setCellFactory(ignoredEvent -> new ListCell<>() {
-            @Override
-            protected void updateItem(Library item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) setText(null);
-                else setText(item.getNome() + "  (" + item.getBookIds().size() + " libri)");
-            }
-        });
-        cb.setButtonCell(new ListCell<>() {
-            @Override
-            protected void updateItem(Library item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) setText("Seleziona libreria…");
-                else setText(item.getNome());
-            }
-        });
+        ComboBox<Library> cb = getLibraryComboBox();
 
         cb.getItems().setAll(libs);
         if (!libs.isEmpty()) cb.getSelectionModel().select(0);
@@ -585,6 +567,28 @@ public class BookRecommenderFX extends Application {
         d.showAndWait();
     }
 
+    private static ComboBox<Library> getLibraryComboBox() {
+        ComboBox<Library>  cb = new ComboBox<>();
+        cb.setMaxWidth(Double.MAX_VALUE);
+
+        cb.setCellFactory(ignoredEvent -> new ListCell<>() {
+            @Override
+            protected void updateItem(Library item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else setText(item.getNome() + "  (" + item.getBookIds().size() + " libri)");
+            }
+        });
+        cb.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Library item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText("Seleziona libreria…");
+                else setText(item.getNome());
+            }
+        });
+        return cb;
+    }
 
 
     // ---------------- DETAIL (aggiungo bottoni rapidi) ----------------
@@ -958,7 +962,7 @@ public class BookRecommenderFX extends Application {
         grid.add(label("Contenuto (1-5)"), 0, r); grid.add(sCont, 1, r++);
         grid.add(label("Gradevolezza (1-5)"), 0, r); grid.add(sGrad, 1, r++);
         grid.add(label("Originalità (1-5)"), 0, r); grid.add(sOrig, 1, r++);
-        grid.add(label("Edizione (1-5)"), 0, r); grid.add(sEdiz, 1, r++);
+        grid.add(label("Edizione (1-5)"), 0, r); grid.add(sEdiz, 1, ++r);
 
         ColumnConstraints c1 = new ColumnConstraints();
         c1.setMinWidth(170);
@@ -1265,6 +1269,15 @@ public class BookRecommenderFX extends Application {
         btnLibs.setMaxWidth(Double.MAX_VALUE);
         btnLibs.setOnAction(_ -> LibrariesWindow.open(authService, libraryService, libriRepo));
 
+        VBox box = getVBox(title, sub, btnLibs);
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
+    }
+
+    private VBox getVBox(Label title, Label sub, Button btnLibs) {
         Button btnReviews = new Button("Le mie valutazioni");
         btnReviews.setMaxWidth(Double.MAX_VALUE);
         btnReviews.setOnAction(_ -> ReviewsWindow.open(authService, reviewService, libriRepo));
@@ -1277,12 +1290,7 @@ public class BookRecommenderFX extends Application {
         btnAcc.setMaxWidth(Double.MAX_VALUE);
         btnAcc.setOnAction(_ -> UserProfileWindow.open(authService));
 
-        VBox box = new VBox(10, title, sub, new Separator(), btnLibs, btnReviews, btnSug, btnAcc);
-        box.getStyleClass().add("card");
-        box.setPadding(new Insets(14));
-
-        d.getDialogPane().setContent(box);
-        d.showAndWait();
+        return new VBox(10, title, sub, new Separator(), btnLibs, btnReviews, btnSug, btnAcc);
     }
 
     private void openLogin(Stage owner) {
@@ -1400,7 +1408,7 @@ public class BookRecommenderFX extends Application {
         grid.add(label("Email"), 0, r); grid.add(email, 1, r++);
         grid.add(label("Username"), 0, r); grid.add(username, 1, r++);
         grid.add(label("Password"), 0, r); grid.add(pw.getNode(), 1, r++);
-        grid.add(label("Ripeti password"), 0, r); grid.add(pw2.getNode(), 1, r++);
+        grid.add(label("Ripeti password"), 0, r); grid.add(pw2.getNode(), 1, ++r);
 
         ColumnConstraints c1 = new ColumnConstraints();
         c1.setMinWidth(160);

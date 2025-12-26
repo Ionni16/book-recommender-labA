@@ -1,6 +1,7 @@
 package bookrecommender.service;
 
 import bookrecommender.model.Review;
+import bookrecommender.util.Utilities;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -62,7 +63,7 @@ public class ReviewService {
      * @throws Exception in caso di errore di I/O durante lettura/scrittura dei file
      */
     public boolean inserisciValutazione(Review r) throws Exception {
-        if (!utenteHaLibroInLibreria(r.getUserid(), r.getBookId())) {
+        if (!Utilities.utenteHaLibroInLibreria(r.getUserid(), r.getBookId(), fileLibrerie)) {
             return false;
         }
 
@@ -220,40 +221,5 @@ public class ReviewService {
     private int parseIntSafe(String s) {
         try { return Integer.parseInt(s.trim()); }
         catch (Exception e) { return 0; }
-    }
-
-    // ============ controllo libreria ============
-
-    /**
-     * Verifica che un utente possieda un certo libro in almeno una delle
-     * proprie librerie.
-     * <p>
-     * Il controllo viene eseguito scorrendo il file <code>Librerie.dati</code>
-     * e cercando lo <code>userid</code> indicato e la presenza del relativo
-     * <code>bookId</code> tra gli ID elencati nelle librerie.
-     *
-     * @param userid identificatore dell'utente
-     * @param bookId identificatore del libro da cercare nelle librerie
-     * @return {@code true} se il libro è presente in almeno una libreria
-     *         dell'utente, {@code false} altrimenti
-     * @throws Exception in caso di errore di I/O durante la lettura del file
-     *                   delle librerie
-     */
-    private boolean utenteHaLibroInLibreria(String userid, int bookId) throws Exception {
-        if (!Files.exists(fileLibrerie)) return false;
-        try (BufferedReader br = Files.newBufferedReader(fileLibrerie)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.isBlank()) continue;
-                String[] c = line.split(";", -1);
-                if (c.length < 3) continue;
-                if (!c[0].equals(userid)) continue;
-                if (Arrays.stream(c[2].split(","))
-                        .anyMatch(p -> p.trim().equals(String.valueOf(bookId)))) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }

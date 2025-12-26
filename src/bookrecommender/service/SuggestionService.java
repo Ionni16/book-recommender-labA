@@ -1,6 +1,7 @@
 package bookrecommender.service;
 
 import bookrecommender.model.Suggestion;
+import bookrecommender.util.Utilities;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -48,7 +49,7 @@ public class SuggestionService {
      * @param fileLibrerie percorso del file <code>Librerie.dati</code>
      *                     utilizzato per i controlli sul possesso dei libri
      */
-    public SuggestionService(Path fileConsigli, Path fileLibrerie) {
+    public SuggestionService(Path fileConsigli,  Path fileLibrerie) {
         this.fileConsigli = fileConsigli;
         this.fileLibrerie = fileLibrerie;
     }
@@ -85,7 +86,7 @@ public class SuggestionService {
 
         // controlla che ogni libro suggerito sia in almeno una libreria dell'utente
         for (int id : ids) {
-            if (!utenteHaLibroInLibreria(s.getUserid(), id)) {
+            if (!Utilities.utenteHaLibroInLibreria(s.getUserid(), id, fileLibrerie)) {
                 return false;
             }
         }
@@ -216,38 +217,6 @@ public class SuggestionService {
         catch (Exception e) { return 0; }
     }
 
-    // ============ controllo libreria ============
 
-    /**
-     * Verifica che un utente possieda un certo libro in almeno una delle
-     * proprie librerie.
-     * <p>
-     * Il controllo viene eseguito scorrendo il file <code>Librerie.dati</code>
-     * e cercando lo <code>userid</code> indicato e la presenza del relativo
-     * <code>bookId</code> tra gli ID elencati nelle librerie.
-     *
-     * @param userid identificatore dell'utente
-     * @param bookId identificatore del libro da cercare nelle librerie
-     * @return {@code true} se il libro è presente in almeno una libreria
-     *         dell'utente, {@code false} altrimenti
-     * @throws Exception in caso di errore di I/O durante la lettura del file
-     *                   delle librerie
-     */
-    private boolean utenteHaLibroInLibreria(String userid, int bookId) throws Exception {
-        if (!Files.exists(fileLibrerie)) return false;
-        try (BufferedReader br = Files.newBufferedReader(fileLibrerie)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.isBlank()) continue;
-                String[] c = line.split(";", -1);
-                if (c.length < 3) continue;
-                if (!c[0].equals(userid)) continue;
-                if (Arrays.stream(c[2].split(","))
-                        .anyMatch(p -> p.trim().equals(String.valueOf(bookId)))) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
+
 }

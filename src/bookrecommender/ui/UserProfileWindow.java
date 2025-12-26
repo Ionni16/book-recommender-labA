@@ -3,7 +3,6 @@ package bookrecommender.ui;
 import bookrecommender.model.User;
 import bookrecommender.service.AuthService;
 
-import bookrecommender.util.Utilities;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -65,7 +64,7 @@ public class UserProfileWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(Utilities.buildFooter());
+        root.setBottom(FxUtil.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 820, 560);
 
@@ -94,9 +93,7 @@ public class UserProfileWindow extends Stage {
             VBox v = new VBox(10, new Label("Login richiesto."));
             v.getStyleClass().add("card");
             v.setPadding(new Insets(14));
-            BorderPane wrap = new BorderPane(v);
-            wrap.setPadding(new Insets(14));
-            return wrap;
+            FxUtil.wrapCard(v);
         }
 
         User u;

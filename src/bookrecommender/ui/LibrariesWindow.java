@@ -6,7 +6,6 @@ import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.AuthService;
 import bookrecommender.service.LibraryService;
 
-import bookrecommender.util.Utilities;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -87,7 +86,7 @@ public class LibrariesWindow extends Stage {
         root.getStyleClass().add("app-bg");
         root.setTop(buildHeader());
         root.setCenter(buildCenter());
-        root.setBottom(Utilities.buildFooter());
+        root.setBottom(FxUtil.buildFooter());
 
         Scene scene = new Scene(new StackPane(root), 980, 560);
         URL css = getClass().getResource("app.css");
