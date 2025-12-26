@@ -1,15 +1,18 @@
 package bookrecommender.ui;
 
 import javafx.animation.PauseTransition;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -108,4 +111,38 @@ public final class FxUtil {
         pt.setOnFinished(_ -> stack.getChildren().remove(chip));
         pt.playFromStart();
     }
+
+    public static <S> void addColumns(TableView<S> table, List<TableColumn<S, ?>> cols) {
+        table.getColumns().addAll(cols);
+    }
+
+    public static HBox buildReloadDeleteBar(
+            TableView<?> table,
+            String reloadText,
+            Runnable onReload,
+            String deleteText,
+            Runnable onDelete
+    ) {
+        Button btnDelete = new Button(deleteText);
+        btnDelete.getStyleClass().add("danger");
+        btnDelete.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        btnDelete.setOnAction(_ -> onDelete.run());
+
+        Button btnReload = new Button(reloadText);
+        btnReload.getStyleClass().add("ghost");
+        btnReload.setOnAction(_ -> onReload.run());
+
+        HBox actions = new HBox(10, btnReload, btnDelete);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        return actions;
+    }
+
+    public static BorderPane wrapCard(VBox card) {
+        BorderPane wrap = new BorderPane(card);
+        wrap.setPadding(new Insets(14));
+        return wrap;
+    }
+
+
+
 }

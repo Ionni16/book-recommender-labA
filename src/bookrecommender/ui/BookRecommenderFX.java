@@ -1,6 +1,5 @@
 package bookrecommender.ui;
 
-import bookrecommender.util.Utilities;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
@@ -9,7 +8,6 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
-import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -29,6 +27,7 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 
 
 /**
@@ -69,7 +68,6 @@ public class BookRecommenderFX extends Application {
     private Button btnLogin;
     private Button btnRegister;
     private Button btnLogout;
-    private Button btnArea;
 
     // ---- UI ----
     private Label lblUserBadge;
@@ -218,7 +216,7 @@ public class BookRecommenderFX extends Application {
             FxUtil.toast(owner.getScene(), "Logout effettuato");
         });
 
-        btnArea = new Button("Area riservata");
+        Button btnArea = new Button("Area riservata");
         btnArea.setOnAction(_ -> openReservedHome(owner));
 
         HBox right = new HBox(10, lblUserBadge, btnArea, btnLogin, btnRegister, btnLogout);
@@ -316,7 +314,7 @@ public class BookRecommenderFX extends Application {
         ckOnlyMyLibraries = new CheckBox("Cerca solo nelle mie librerie (login)");
         ckOnlyMyLibraries.setSelected(false);
 
-        cbSearchMode.valueProperty().addListener((obs, o, n) -> applySearchMode(n));
+        cbSearchMode.valueProperty().addListener((ignoreObs, ignoreOld, n) -> applySearchMode(n));
         applySearchMode(cbSearchMode.getValue());
 
         Button btnSearch = new Button("Cerca");
@@ -416,7 +414,7 @@ public class BookRecommenderFX extends Application {
         cYear.setMinWidth(80);    cYear.setMaxWidth(120);
 
         cYear.setStyle("-fx-alignment: CENTER;");
-        cYear.setCellFactory(col -> new TableCell<>() {
+        cYear.setCellFactory(ignoredEvent -> new TableCell<>() {
             @Override protected void updateItem(Integer item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty ? null : (item == null ? "" : String.valueOf(item)));
@@ -424,17 +422,16 @@ public class BookRecommenderFX extends Application {
             }
         });
 
-        tbl.getColumns().setAll(cId, cTitle, cAuthor, cYear);
+        FxUtil.addColumns(tbl, List.of(cId, cTitle, cAuthor, cYear));
+        
 
 
-
-
-        tbl.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
+        tbl.getSelectionModel().selectedItemProperty().addListener((ignoreignoreObs, ignoreOld, n) -> {
             if (n != null) showDetail(owner, n);
         });
 
         // doppio click resta utile
-        tbl.setRowFactory(tv -> {
+        tbl.setRowFactory(ignoredTv -> {
             TableRow<Book> row = new TableRow<>();
             row.setOnMouseClicked(e -> {
                 if (e.getClickCount() == 2 && !row.isEmpty()) showDetail(owner, row.getItem());
@@ -481,7 +478,7 @@ public class BookRecommenderFX extends Application {
         ComboBox<Library> cb = new ComboBox<>();
         cb.setMaxWidth(Double.MAX_VALUE);
 
-        cb.setCellFactory(list -> new ListCell<>() {
+        cb.setCellFactory(ignoredEvent -> new ListCell<>() {
             @Override
             protected void updateItem(Library item, boolean empty) {
                 super.updateItem(item, empty);
@@ -813,7 +810,7 @@ public class BookRecommenderFX extends Application {
 
     // ---------------- Detail ----------------
 
-    private void showDetail(Stage owner, Book b) {
+    private void showDetail(Stage ignoredOwner, Book b) {
         if (b == null) return;
 
         selectedBook = b;
@@ -873,7 +870,7 @@ public class BookRecommenderFX extends Application {
                         Optional<Book> match = data.stream().filter(x -> x.getId() == sb.getId()).findFirst();
                         match.ifPresentOrElse(
                                 m -> tbl.getSelectionModel().select(m),
-                                () -> showDetail(owner, sb)
+                                () -> showDetail(ignoredOwner, sb)
                         );
                     });
 
@@ -1071,9 +1068,10 @@ public class BookRecommenderFX extends Application {
         sub.setWrapText(true);
 
         Label hint = labelMuted(
-                "Puoi consigliare fino a 3 libri.\n" +
-                "Mostro solo i libri presenti nelle tue librerie.\n" +
-                "Suggerimento: scrivi nel campo per filtrare (titolo / ID)."
+                """
+                        Puoi consigliare fino a 3 libri.
+                        Mostro solo i libri presenti nelle tue librerie.
+                        Suggerimento: scrivi nel campo per filtrare (titolo / ID)."""
         );
 
         ComboBox<Book> c1 = suggestCombo(myBooks);
@@ -1103,9 +1101,9 @@ public class BookRecommenderFX extends Application {
             refreshSave.run();
         };
 
-        c1.valueProperty().addListener((obs, o, n) -> enforceNoDuplicates.run());
-        c2.valueProperty().addListener((obs, o, n) -> enforceNoDuplicates.run());
-        c3.valueProperty().addListener((obs, o, n) -> enforceNoDuplicates.run());
+        c1.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
+        c2.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
+        c3.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
 
         save.setOnAction(_ -> {
             try {
@@ -1173,7 +1171,7 @@ public class BookRecommenderFX extends Application {
     private ComboBox<Book> suggestCombo(List<Book> source) {
         ObservableList<Book> base = FXCollections.observableArrayList(source);
 
-        FilteredList<Book> filtered = new FilteredList<>(base, b -> true);
+        FilteredList<Book> filtered = new FilteredList<>(base, ignoreB -> true);
 
         ComboBox<Book> cb = new ComboBox<>(filtered);
         cb.setMaxWidth(Double.MAX_VALUE);
@@ -1190,7 +1188,7 @@ public class BookRecommenderFX extends Application {
             }
         });
 
-        cb.setCellFactory(list -> new ListCell<>() {
+        cb.setCellFactory(ignoreList -> new ListCell<>() {
             @Override protected void updateItem(Book item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) { setText(null); return; }
@@ -1208,7 +1206,7 @@ public class BookRecommenderFX extends Application {
         });
 
         // filtro live mentre scrivi (senza mai resettare items -> selezione funziona SEMPRE)
-        cb.getEditor().textProperty().addListener((obs, old, txt) -> {
+        cb.getEditor().textProperty().addListener((ignoreObs, ignoreOld, txt) -> {
             String q = (txt == null) ? "" : txt.trim().toLowerCase();
 
             // se l’utente ha selezionato un valore, non ricalcolare mentre il testo è identico al selezionato
@@ -1219,7 +1217,7 @@ public class BookRecommenderFX extends Application {
             }
 
             if (q.isEmpty()) {
-                filtered.setPredicate(b -> true);
+                filtered.setPredicate(ignoreB -> true);
             } else {
                 filtered.setPredicate(b -> {
                     String title = (b.getTitolo() == null ? "" : b.getTitolo()).toLowerCase();

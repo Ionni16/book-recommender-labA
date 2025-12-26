@@ -3,12 +3,10 @@ package bookrecommender.repo;
 import bookrecommender.model.Suggestion;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,10 +49,10 @@ public class ConsigliRepository {
      *
      * <p>La lettura è robusta:
      * <ul>
-     *   <li>ignora righe vuote o malformate;</li>
-     *   <li>accetta righe con numero variabile di colonne (>= 3);</li>
-     *   <li>legge fino a un massimo di 3 suggeriti (colonne 3..5 del formato completo);</li>
-     *   <li>ignora ID non numerici nei suggeriti.</li>
+     *   <li>Ignora righe vuote o malformate;</li>
+     *   <li>Accetta righe con numero variabile di colonne (>= 3);</li>
+     *   <li>Legge fino a un massimo di 3 suggeriti (colonne 3..5 del formato completo);</li>
+     *   <li>Ignora ID non numerici nei suggeriti.</li>
      * </ul>
      * </p>
      *
@@ -98,19 +96,7 @@ public class ConsigliRepository {
 
                 if (bId != bookId) continue;
 
-                List<Integer> sug = new ArrayList<>();
-
-                // legge da colonna 2 fino a max colonna 4 (max 3 suggeriti)
-                for (int i = 2; i < c.length && i <= 4; i++) {
-                    String cell = c[i].trim();
-                    if (cell.isEmpty()) continue;
-
-                    try {
-                        sug.add(Integer.parseInt(cell));
-                    } catch (NumberFormatException ignored) {
-                        // ignora ID sporchi
-                    }
-                }
+                List<Integer> sug = getIntegers(c);
 
                 if (!sug.isEmpty()) {
                     out.add(new Suggestion(c[0].trim(), bId, sug));
@@ -122,39 +108,35 @@ public class ConsigliRepository {
     }
 
 
-    // --------------- METODO DI SCRITTURA ---------------
     /**
-     * Aggiunge in coda al file una nuova riga corrispondente alla {@link Suggestion} specificata.
+     * Estrae e converte in interi gli ID dei libri suggeriti presenti in una riga del file dati.
+     * <p>
+     * Il formato atteso è una riga "a colonne" già splittata in {@code String[]}, dove:
+     * <ul>
+     *   <li>{@code c[0]} contiene il nome della libreria (usato altrove)</li>
+     *   <li>{@code c[1]} contiene l'ID del libro di riferimento (usato altrove)</li>
+     *   <li>Le colonne da {@code c[2]} a {@code c[4]} (massimo 3) contengono gli ID dei libri suggeriti</li>
+     * </ul>
+     * Ogni cella viene ripulita con {@link String#trim()} e ignorata se vuota.
+     * Eventuali valori non numerici vengono scartati (gestione di {@link NumberFormatException}).
      *
-     * <p>Se il file non esiste ancora viene creato e viene scritta l'intestazione di colonna.
-     * Se la lista dei libri suggeriti contiene meno di tre elementi, i campi mancanti vengono
-     * lasciati vuoti nella riga scritta.</p>
-     *
-     * @param s suggerimento da memorizzare
-     * @throws IOException in caso di errore di I/O durante la scrittura del file
+     * @param c array di stringhe rappresentante una riga del file (colonne già separate)
+     * @return lista di ID suggeriti validi (può essere vuota, mai {@code null})
      */
-    public void append(Suggestion s) throws IOException {
-        boolean exists = Files.exists(file);
+    private static List<Integer> getIntegers(String[] c) {
+        List<Integer> sug = new ArrayList<>();
 
-        List<Integer> list = s.getSuggeriti();
-        int id1 = !list.isEmpty() ? list.get(0) : 0;
-        int id2 = list.size() > 1 ? list.get(1) : 0;
-        int id3 = list.size() > 2 ? list.get(2) : 0;
+        // legge da colonna 2 fino a max colonna 4 (max 3 suggeriti)
+        for (int i = 2; i < c.length && i <= 4; i++) {
+            String cell = c[i].trim();
+            if (cell.isEmpty()) continue;
 
-        try (BufferedWriter bw = Files.newBufferedWriter(
-                file,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.APPEND
-        )) {
-            if (!exists) {
-                bw.write("userid;idLibro;idSuggerito1;idSuggerito2;idSuggerito3\n");
+            try {
+                sug.add(Integer.parseInt(cell));
+            } catch (NumberFormatException ignored) {
+                // ignora ID sporchi
             }
-
-            bw.write(s.getUserid() + ";" + s.getBookId() + ";"
-                    + (id1 == 0 ? "" : id1) + ";"
-                    + (id2 == 0 ? "" : id2) + ";"
-                    + (id3 == 0 ? "" : id3) + "\n");
         }
+        return sug;
     }
 }

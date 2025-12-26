@@ -11,7 +11,6 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -20,6 +19,7 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.net.URL;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -125,37 +125,28 @@ public class SuggestionsWindow extends Stage {
             return new ReadOnlyObjectWrapper<>(b == null ? "(n/d)" : b.getTitolo());
         });
 
-        TableColumn<Suggestion, String> cSug = new TableColumn<>("Suggeriti (max 3)");
-        cSug.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(
-                v.getValue().getSuggeriti() == null ? "" :
-                        v.getValue().getSuggeriti().stream()
-                                .map(id -> {
-                                    Book sb = libriRepo.findById(id);
-                                    return sb == null ? String.valueOf(id) : sb.getTitolo();
-                                })
-                                .collect(Collectors.joining(" • "))
-        ));
+        TableColumn<Suggestion, String> cSug = getSuggestionStringTableColumn();
 
-        tbl.getColumns().addAll(cBook, cBookTitle, cSug);
+        FxUtil.addColumns(tbl, List.of(cBook, cBookTitle, cSug));
 
-        Button btnDelete = new Button("Elimina consiglio");
-        btnDelete.getStyleClass().add("danger");
-        btnDelete.disableProperty().bind(tbl.getSelectionModel().selectedItemProperty().isNull());
-        btnDelete.setOnAction(_ -> deleteSelected());
-
-        Button btnReload = new Button("Ricarica");
-        btnReload.getStyleClass().add("ghost");
-        btnReload.setOnAction(_ -> load());
-
-        HBox actions = new HBox(10, btnReload, btnDelete);
-        actions.setAlignment(Pos.CENTER_RIGHT);
+        HBox actions = FxUtil.buildReloadDeleteBar(tbl, "Ricarica", this::load, "Elimina", this::deleteSelected);
 
         card.getChildren().addAll(new Label("Elenco"), tbl, actions);
         VBox.setVgrow(tbl, Priority.ALWAYS);
 
-        BorderPane wrap = new BorderPane(card);
-        wrap.setPadding(new Insets(14));
-        return wrap;
+        return FxUtil.wrapCard(card);
+    }
+
+    private TableColumn<Suggestion, String> getSuggestionStringTableColumn() {
+        TableColumn<Suggestion, String> cSug = new TableColumn<>("Suggeriti (max 3)");
+        cSug.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(
+                v.getValue().getSuggeriti() == null ? "" :
+                        v.getValue().getSuggeriti().stream().map(id -> {
+                                    Book sb = libriRepo.findById(id);
+                                    return sb == null ? String.valueOf(id) : sb.getTitolo();
+                                }).collect(Collectors.joining(" • "))
+        ));
+        return cSug;
     }
 
 

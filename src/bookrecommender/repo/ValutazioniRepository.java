@@ -85,37 +85,4 @@ public class ValutazioniRepository {
         return out;
     }
 
-
-    // --------------- METODO PUBBLICO ---------------
-    /**
-     * Aggiunge in coda al file una riga corrispondente alla
-     * valutazione specificata.
-     * <p>
-     * Se il file non esiste ancora, viene creato e viene scritta
-     * anche l'intestazione di colonna. Il commento viene normalizzato
-     * rimuovendo eventuali ritorni a capo e spazi superflui.
-     *
-     * @param r valutazione da memorizzare
-     * @throws IOException in caso di errore di I/O durante la scrittura del file
-     */
-    public void append(Review r) throws IOException {
-        boolean exists = Files.exists(file);
-        try (BufferedWriter bw = Files.newBufferedWriter(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            if (!exists) {
-                bw.write("userid;idLibro;stile;contenuto;gradevolezza;originalita;edizione;votoFinale;commento\n");
-            }
-            bw.write(String.join(";", Arrays.asList(
-                r.getUserid(),
-                Integer.toString(r.getBookId()),
-                Integer.toString(r.getStile()),
-                Integer.toString(r.getContenuto()),
-                Integer.toString(r.getGradevolezza()),
-                Integer.toString(r.getOriginalita()),
-                Integer.toString(r.getEdizione()),
-                Integer.toString(r.getVotoFinale()),
-                r.getCommento() == null ? "" : r.getCommento().replace("\n"," ").trim()
-            )));
-            bw.write("\n");
-        }
-    }
 }

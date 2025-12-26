@@ -11,7 +11,6 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -20,6 +19,7 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.net.URL;
+import java.util.List;
 
 /**
  * Finestra modale per la visualizzazione e gestione delle valutazioni
@@ -133,26 +133,15 @@ public class ReviewsWindow extends Stage {
                 v.getValue().getCommento() == null ? "" : v.getValue().getCommento()
         ));
 
-        tbl.getColumns().addAll(cBookId, cTitle, cFinal, cComment);
 
-        Button btnDelete = new Button("Elimina valutazione");
-        btnDelete.getStyleClass().add("danger");
-        btnDelete.disableProperty().bind(tbl.getSelectionModel().selectedItemProperty().isNull());
-        btnDelete.setOnAction(_ -> deleteSelected());
+        FxUtil.addColumns(tbl, List.of(cBookId, cTitle, cFinal, cComment));
 
-        Button btnReload = new Button("Ricarica");
-        btnReload.getStyleClass().add("ghost");
-        btnReload.setOnAction(_ -> load());
-
-        HBox actions = new HBox(10, btnReload, btnDelete);
-        actions.setAlignment(Pos.CENTER_RIGHT);
+        HBox actions = FxUtil.buildReloadDeleteBar(tbl, "Ricarica", this::load, "Elimina", this::deleteSelected);
 
         card.getChildren().addAll(new Label("Elenco"), tbl, actions);
         VBox.setVgrow(tbl, Priority.ALWAYS);
 
-        BorderPane wrap = new BorderPane(card);
-        wrap.setPadding(new Insets(14));
-        return wrap;
+        return FxUtil.wrapCard(card);
     }
 
 
