@@ -1,19 +1,46 @@
 package bookrecommender;
 
+import bookrecommender.ui.PasswordManager;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Applicazione console <code>BookRecommender</code> (Lab A).
+ * <p>
+ * Fornisce un'interfaccia testuale per:
+ * <ul>
+ *     <li>Ricercare libri per titolo, autore, autore+anno;</li>
+ *     <li>Registrare nuovi utenti e gestire il login/logout;</li>
+ *     <li>Creare/aggiornare librerie personali di libri;</li>
+ *     <li>Inserire valutazioni sui libri;</li>
+ *     <li>Inserire suggerimenti di libri correlati;</li>
+ *     <li>Visualizzare i dettagli aggregati di un libro
+ *         (statistiche su valutazioni e suggerimenti).</li>
+ * </ul>
+ * I dati sono letti e scritti da/verso file <code>.dati</code> nella cartella
+ * <code>data</code> tramite i repository e i servizi del package
+ * <code>bookrecommender.service</code>.
+ *
+ * @author Ionut Puiu -753296- Sede: VA, Matteo Ferrario -756147- Sede: VA, Hamdi Kebeli -- Sede: CO.
+ * @version 1.0
+ */
 public class BookRecommender {
+
     /**
-     * Autori: Ionut Puiu -753296- Sede: VA
-     *         
+     * Punto di ingresso dell'applicazione console.
+     * <p>
+     * Inizializza il repository dei libri e i vari servizi di dominio,
+     * quindi mostra un menù testuale che rimane attivo finché l'utente
+     * non sceglie l'opzione di uscita.
+     *
      */
-    public static void main(String[] args) {
+    public static void runCli() {
         Scanner in = new Scanner(System.in);
         Path dataDir = Path.of("data");
 
@@ -31,7 +58,7 @@ public class BookRecommender {
         // Servizi
         SearchService search = new SearchService(libriRepo);
         AuthService auth = new AuthService(dataDir.resolve("UtentiRegistrati.dati"));
-        LibraryService libraryService = new LibraryService(dataDir.resolve("Librerie.dati"), libriRepo);
+        LibraryService libraryService = new LibraryService(dataDir.resolve("Librerie.dati"));
         ReviewService reviewService = new ReviewService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("Librerie.dati"));
         SuggestionService suggestionService = new SuggestionService(dataDir.resolve("ConsigliLibri.dati"), dataDir.resolve("Librerie.dati"));
         AggregationService agg = new AggregationService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("ConsigliLibri.dati"));
@@ -59,9 +86,9 @@ public class BookRecommender {
                 case "3": doSearchByAuthorYear(in, search); break;
                 case "4": doRegister(in, auth); break;
                 case "5": doLogin(in, auth); break;
-                case "6": doLibrary(in, auth, libraryService, libriRepo); break;
-                case "7": doReview(in, auth, reviewService, libriRepo); break;
-                case "8": doSuggest(in, auth, suggestionService, libriRepo); break;
+                case "6": doLibrary(in, auth, libraryService); break;
+                case "7": doReview(in, auth, reviewService); break;
+                case "8": doSuggest(in, auth, suggestionService); break;
                 case "9": doVisualizza(in, search, agg, libriRepo); break;
                 case "L": case "l": auth.logout(); System.out.println("Logout eseguito."); break;
                 case "0": return;
@@ -101,15 +128,32 @@ public class BookRecommender {
         System.out.print("Codice Fiscale: "); String cf = in.nextLine().trim();
         System.out.print("Email: "); String email = in.nextLine().trim();
 
-        String hash = AuthService.sha256(pass);
-        User u = new User(userid, hash, nome, cognome, cf, email);
+        if (userid.isEmpty() || pass.isEmpty()) {
+            System.out.println("Userid e password sono obbligatori.");
+            return;
+        }
+        if (!EMAIL_RX.matcher(email).matches()) {
+            System.out.println("Email non valida.");
+            return;
+        }
+        if (!PasswordManager.isStrongPassword(pass)) {
+            System.out.println("Password troppo debole. Minimo 8 caratteri, con lettere e numeri.");
+            return;
+        }
+
         try {
+            String hash = AuthService.sha256(pass);
+            User u = new User(userid, hash, nome, cognome, cf, email);
             boolean ok = auth.registrazione(u);
-            System.out.println(ok ? "Registrazione completata." : "Registrazione fallita (userid già esistente?).");
+            System.out.println(ok
+                    ? "Registrazione completata."
+                    : "Registrazione fallita (userid già esistente?).");
         } catch (Exception e) {
             System.out.println("Errore: " + e.getMessage());
         }
     }
+
+
     private static void doLogin(Scanner in, AuthService auth) {
         System.out.println("=== Login ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();
@@ -123,7 +167,7 @@ public class BookRecommender {
     }
 
     // === Librerie ===
-    private static void doLibrary(Scanner in, AuthService auth, LibraryService libraryService, LibriRepository libriRepo) {
+    private static void doLibrary(Scanner in, AuthService auth, LibraryService libraryService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
@@ -151,18 +195,18 @@ public class BookRecommender {
     }
 
     // === Valutazioni ===
-    private static void doReview(Scanner in, AuthService auth, ReviewService reviewService, LibriRepository libriRepo) {
+    private static void doReview(Scanner in, AuthService auth, ReviewService reviewService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
         try {
             System.out.print("idLibro da valutare: ");
             int id = Integer.parseInt(in.nextLine().trim());
-            int stile = askInt(in, "Stile (1..5): ", 1, 5);
-            int contenuto = askInt(in, "Contenuto (1..5): ", 1, 5);
-            int gradev = askInt(in, "Gradevolezza (1..5): ", 1, 5);
-            int orig = askInt(in, "Originalità (1..5): ", 1, 5);
-            int ed = askInt(in, "Edizione (1..5): ", 1, 5);
+            int stile = askInt(in, "Stile (1..5): ");
+            int contenuto = askInt(in, "Contenuto (1..5): ");
+            int gradev = askInt(in, "Gradevolezza (1..5): ");
+            int orig = askInt(in, "Originalità (1..5): ");
+            int ed = askInt(in, "Edizione (1..5): ");
             System.out.print("Commento (max 256, opzionale): ");
             String comm = in.nextLine();
             if (comm != null && comm.length() > 256) { System.out.println("Commento troppo lungo."); return; }
@@ -180,7 +224,7 @@ public class BookRecommender {
     }
 
     // === Suggerimenti ===
-    private static void doSuggest(Scanner in, AuthService auth, SuggestionService suggestionService, LibriRepository libriRepo) {
+    private static void doSuggest(Scanner in, AuthService auth, SuggestionService suggestionService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
 
@@ -273,15 +317,21 @@ public class BookRecommender {
         }
         return out;
     }
-    private static int askInt(Scanner in, String prompt, int min, int max) {
+    private static int askInt(Scanner in, String prompt) {
         System.out.print(prompt);
         try {
             int x = Integer.parseInt(in.nextLine().trim());
-            if (x < min || x > max) throw new NumberFormatException();
+            if (x < 1 || x > 5) throw new NumberFormatException();
             return x;
         } catch (NumberFormatException e) {
             System.out.println("Valore non valido. Annullato.");
             throw e;
         }
     }
+
+    private static final Pattern EMAIL_RX =
+            Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+
+
 }

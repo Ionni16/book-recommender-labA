@@ -1,48 +1,23 @@
 package bookrecommender.ui;
 
-import bookrecommender.model.Book;
-import bookrecommender.model.Library;
-import bookrecommender.model.Review;
-import bookrecommender.model.Suggestion;
-import bookrecommender.model.User;
+import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
-import bookrecommender.service.AggregationService;
-import bookrecommender.service.AuthService;
-import bookrecommender.service.LibraryService;
-import bookrecommender.service.ReviewService;
-import bookrecommender.service.SearchService;
-import bookrecommender.service.SuggestionService;
+import bookrecommender.service.*;
 import javafx.application.Application;
-import javafx.beans.binding.Bindings;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -50,14 +25,35 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+
+
 /**
- * GUI JavaFX per il progetto Book Recommender (Lab A).
+ * Classe principale dell'interfaccia grafica JavaFX dell'applicazione
+ * <code>Book Recommender</code>.
+ * <p>
+ * Si occupa di:
+ * <ul>
+ *     <li>Inizializzare i servizi di accesso ai dati
+ *         ({@link bookrecommender.repo.LibriRepository} e i vari
+ *         servizi nel package <code>bookrecommender.service</code>);</li>
+ *     <li>Configurare lo stile JavaFX e caricare il foglio di stile CSS;</li>
+ *     <li>Costruire la finestra principale con barra superiore, area di ricerca
+ *         e tabella dei risultati;</li>
+ *     <li>Aprire le finestre secondarie (login, registrazione, profilo utente,
+ *         gestione librerie, valutazioni e suggerimenti);</li>
+ *     <li>Gestire lo stato dell'utente corrente (login/logout) aggiornando
+ *         i controlli visibili nella UI.</li>
+ * </ul>
+ *
+ * @author Ionut Puiu
+ * @version 1.0
  */
 public class BookRecommenderFX extends Application {
 
-    // --- servizi ---
+    // ---- Services ----
     private LibriRepository libriRepo;
     private SearchService searchService;
     private AuthService authService;
@@ -65,849 +61,1403 @@ public class BookRecommenderFX extends Application {
     private ReviewService reviewService;
     private SuggestionService suggestionService;
     private AggregationService aggregationService;
+    private Path dataDir;
 
-    // --- UI base ---
-    private BorderPane root;
-    private TableView<Book> tblBooks;
-    private ObservableList<Book> booksData;
 
-    private TextField tfSearch;
-    private ComboBox<SearchMode> cbSearchMode;
-    private Label lblUser;
-    private Label lblStatus;
-
+    // ---- AppBar buttons ----
     private Button btnLogin;
     private Button btnRegister;
     private Button btnLogout;
 
-    // dettaglio libro
-    private Label lblDetTitle;
-    private Label lblDetAuthors;
-    private Label lblDetMeta;
-    private Label lblDetCategory;
-    private Label lblRatingHeader;
-    private Label lblRatingAverages;
-    private Label lblRatingDistribution;
-    private VBox  boxSuggestions;
+    // ---- UI ----
+    private Label lblUserBadge;
+    private Label lblStatus;
+
+    private ComboBox<SearchMode> cbSearchMode;
+
+    private TextField tfTitle;
+    private TextField tfAuthor;
+    private Spinner<Integer> spYear;
+    private Spinner<Integer> spLimit;
+    private CheckBox ckOnlyMyLibraries;
+
+    private TableView<Book> tbl;
+    private final ObservableList<Book> data = FXCollections.observableArrayList();
+
+    // detail panel
+    private Label dTitle, dAuthors, dMeta, dCategory, dPublisher;
+    private Label dAvg;
+    private VBox dStarsBox;
+    private VBox dSuggestions;
+
+    private Button btnRateThis;
+    private Button btnSuggestThis;
+
+    private Book selectedBook; // libro selezionato per azioni rapide
 
     private enum SearchMode {
-        TITLE("Titolo"),
-        AUTHOR("Autore"),
-        AUTHOR_YEAR("Autore + anno");
+        TITLE("Solo Titolo"),
+        AUTHOR("Solo Autore"),
+        TITLE_AUTHOR("Titolo + Autore"),
+        TITLE_YEAR("Titolo + Anno");
+
         private final String label;
-        SearchMode(String l){ this.label = l; }
-        @Override public String toString(){ return label; }
+        SearchMode(String l) { this.label = l; }
+        @Override public String toString() { return label; }
     }
 
-    private final DecimalFormat DF1 = new DecimalFormat("0.0");
+    private static final DecimalFormat DF1 = new DecimalFormat("0.0");
 
+    // validazioni registrazione
+    private static final Pattern EMAIL_RX = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern CF_RX = Pattern.compile("^[A-Za-z0-9]{16}$");
+
+
+
+
+    /**
+     * Punto di ingresso dell'applicazione JavaFX.
+     * <p>
+     * In questo metodo vengono:
+     * <ul>
+     *     <li>Creata (se necessario) la cartella locale dei dati;</li>
+     *     <li>Inizializzati i repository e i servizi di dominio
+     *         (ricerca, autenticazione, librerie, valutazioni, suggerimenti,
+     *         aggregazione statistiche);</li>
+     *     <li>Costruiti i nodi principali dell'interfaccia grafica
+     *         (barra superiore, area ricerca, tabella risultati);</li>
+     *     <li>Impostata la scena principale e mostrato lo <code>Stage</code> passato
+     *         dal runtime JavaFX.</li>
+     * </ul>
+     *
+     * @param stage finestra principale fornita dal runtime JavaFX
+     * @throws Exception in caso di errori di I/O o in fase di inizializzazione
+     *                   dei servizi e delle risorse grafiche
+     */
     @Override
     public void start(Stage stage) throws Exception {
-        // === init dati ===
-        Path dataDir = Paths.get("data");
+        dataDir = Paths.get("data");
         Files.createDirectories(dataDir);
 
         libriRepo = new LibriRepository(dataDir.resolve("Libri.dati"));
-        try {
-            libriRepo.load();
-        } catch (Exception e) {
-            showFatal("Errore nel caricamento di Libri.dati.\n" +
-                    "Assicurati che il file (o BooksDatasetClean.csv) esista nella cartella data/.\n\n" +
-                    e.getMessage());
-            return;
-        }
+        libriRepo.load();
 
         searchService      = new SearchService(libriRepo);
         authService        = new AuthService(dataDir.resolve("UtentiRegistrati.dati"));
-        libraryService     = new LibraryService(dataDir.resolve("Librerie.dati"), libriRepo);
+        libraryService     = new LibraryService(dataDir.resolve("Librerie.dati"));
         reviewService      = new ReviewService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("Librerie.dati"));
         suggestionService  = new SuggestionService(dataDir.resolve("ConsigliLibri.dati"), dataDir.resolve("Librerie.dati"));
         aggregationService = new AggregationService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("ConsigliLibri.dati"));
 
-        // === UI skeleton ===
-        root = new BorderPane();
-        root.setTop(buildHeader());
-        root.setCenter(buildCenter());
-        root.setBottom(buildStatusBar());
+        StackPane stack = new StackPane();
+        BorderPane app = new BorderPane();
+        app.getStyleClass().add("app-bg");
+        stack.getChildren().add(app);
 
-        Scene scene = new Scene(root, 1200, 720);
+        StackPane.setAlignment(app, Pos.TOP_LEFT);
+
+        // e il BorderPane deve sempre riempire la scena
+        app.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+
+        app.setTop(buildAppBar(stage));
+        app.setCenter(buildMain(stage));
+        app.setBottom(buildStatusBar());
+
+        Scene scene = new Scene(stack, 1280, 740);
 
         URL css = getClass().getResource("app.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
-        } else {
-            scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
-        }
+        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        else scene.getStylesheets().add("file:src/bookrecommender/ui/app.css");
 
-        // tasto F5 = refresh dati da file
         scene.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.F5) {
-                e.consume();
-                refreshAll();
+            if (e.getCode() == KeyCode.ENTER) {
+                Object target = e.getTarget();
+                if (target instanceof TextInputControl) return; // non cercare mentre scrivi
+                doSearch(stage);
             }
+            if (e.getCode() == KeyCode.F5) { e.consume(); refresh(stage); }
         });
 
-        stage.setTitle("Book Recommender — Lab A");
+
+        stage.setTitle("Book Recommender");
         stage.setScene(scene);
         stage.show();
 
-        tfSearch.requestFocus();
         refreshUserUi();
-        setStatus("Libri caricati: " + libriRepo.size());
+        lblStatus.setText("Dataset caricato: " + libriRepo.size() + " libri");
     }
 
-    // ========================= HEADER =========================
+    // ---------------- AppBar ----------------
 
-    private Node buildHeader() {
-        // titoli
+    private Node buildAppBar(Stage owner) {
         Label title = new Label("Book Recommender");
         title.getStyleClass().add("title");
+        Label sub = new Label("Cerca libri, gestisci librerie, valutazioni e consigli");
+        sub.getStyleClass().add("subtitle");
 
-        Label subtitle = new Label("Cerca, valuta e suggerisci libri dal dataset del progetto");
-        subtitle.getStyleClass().add("subtitle");
+        VBox left = new VBox(2, title, sub);
 
-        VBox titleBox = new VBox(2, title, subtitle);
+        lblUserBadge = new Label("Ospite");
+        lblUserBadge.getStyleClass().add("badge");
 
-        // user info + pulsanti
-        lblUser = new Label("Ospite");
-        lblUser.getStyleClass().add("muted");
-
-        // Accedi: testo nero (nessuna classe "primary")
         btnLogin = new Button("Accedi");
-        btnLogin.setOnAction(e -> doLogin());
-        btnLogin.setTooltip(new Tooltip("Accedi con un account esistente"));
+        btnLogin.getStyleClass().add("primary");
+        btnLogin.setOnAction(_ -> openLogin(owner));
 
         btnRegister = new Button("Registrati");
-        btnRegister.setOnAction(e -> doRegister());
-        btnRegister.setTooltip(new Tooltip("Crea un nuovo account"));
+        btnRegister.setOnAction(_ -> openRegister(owner));
 
         btnLogout = new Button("Logout");
         btnLogout.getStyleClass().add("ghost");
-        btnLogout.setOnAction(e -> {
+        btnLogout.setOnAction(_ -> {
             authService.logout();
             refreshUserUi();
-            setStatus("Logout effettuato.");
+            FxUtil.toast(owner.getScene(), "Logout effettuato");
         });
-        btnLogout.setTooltip(new Tooltip("Esci dall'account corrente"));
 
-        HBox userBox = new HBox(8, lblUser, btnLogin, btnRegister, btnLogout);
-        userBox.setAlignment(Pos.CENTER_RIGHT);
+        Button btnArea = new Button("Area riservata");
+        btnArea.setOnAction(_ -> openReservedHome(owner));
 
-        HBox topRow = new HBox(20, titleBox);
-        HBox.setHgrow(titleBox, Priority.ALWAYS);
-        topRow.getChildren().add(userBox);
-        topRow.setAlignment(Pos.CENTER_LEFT);
+        HBox right = new HBox(10, lblUserBadge, btnArea, btnLogin, btnRegister, btnLogout);
+        right.setAlignment(Pos.CENTER_RIGHT);
 
-        // search row
-        tfSearch = new TextField();
-        tfSearch.setPromptText("Titolo (es: Il signore degli anelli)");
-        tfSearch.setPrefWidth(420);
-        tfSearch.setOnAction(e -> performSearch());
+        HBox bar = new HBox(20, left, new Pane(), right);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
+        bar.getStyleClass().add("appbar");
+        bar.setPadding(new Insets(18, 18, 14, 18)); // più aria sopra e sotto
+        bar.setMinHeight(88);
+        bar.setPrefHeight(88);
+        bar.setMaxHeight(88);
+        return bar;
+
+    }
+
+    private void refreshUserUi() {
+        String u = authService.getCurrentUserid();
+        boolean logged = (u != null);
+
+        lblUserBadge.setText(logged ? ("Loggato: " + u) : "Ospite");
+
+        btnLogin.setVisible(!logged);    btnLogin.setManaged(!logged);
+        btnRegister.setVisible(!logged); btnRegister.setManaged(!logged);
+        btnLogout.setVisible(logged);    btnLogout.setManaged(logged);
+
+        ckOnlyMyLibraries.setDisable(!logged);
+        if (!logged) ckOnlyMyLibraries.setSelected(false);
+
+        // abilita/disabilita azioni libro nel dettaglio
+        if (btnRateThis != null) {
+            btnRateThis.setDisable(!logged || selectedBook == null);
+            btnSuggestThis.setDisable(!logged || selectedBook == null);
+            btnRateThis.setText(logged ? "Valuta questo libro" : "Valuta (login richiesto)");
+            btnSuggestThis.setText(logged ? "Consiglia libri" : "Consiglia (login richiesto)");
+        }
+    }
+
+    // ---------------- Main layout ----------------
+
+    private Node buildMain(Stage owner) {
+        VBox searchCard = buildSearchCard(owner);
+        VBox tableCard = buildTableCard(owner);
+        VBox detailCard = buildDetailCard(owner);
+
+        HBox main = new HBox(14, searchCard, tableCard, detailCard);
+        main.setPadding(new Insets(14));
+
+        // 🔹 SINISTRA: più compatta
+        searchCard.setMinWidth(320);
+        searchCard.setPrefWidth(340);
+        searchCard.setMaxWidth(360);
+
+        // 🔹 CENTRO: prende più spazio
+        tableCard.setMinWidth(520);
+        tableCard.setPrefWidth(640);
+
+        // 🔹 DESTRA: stabile e leggibile
+        detailCard.setMinWidth(400);
+        detailCard.setPrefWidth(420);
+        detailCard.setMaxWidth(460);
+
+        // 🔹 Grow policy: SOLO il centro cresce
+        HBox.setHgrow(searchCard, Priority.NEVER);
+        HBox.setHgrow(detailCard, Priority.NEVER);
+        HBox.setHgrow(tableCard, Priority.ALWAYS);
+
+        return main;
+    }
+
+
+
+    private VBox buildSearchCard(Stage owner) {
+        Label t = new Label("Cerca un libro");
+        t.getStyleClass().add("card-title");
 
         cbSearchMode = new ComboBox<>();
-        cbSearchMode.getItems().addAll(SearchMode.TITLE, SearchMode.AUTHOR, SearchMode.AUTHOR_YEAR);
+        cbSearchMode.getItems().setAll(SearchMode.values());
         cbSearchMode.getSelectionModel().select(SearchMode.TITLE);
-        cbSearchMode.valueProperty().addListener((obs,oldv,newv) -> updateSearchPrompt());
+
+        tfTitle = new TextField();
+        tfTitle.setPromptText("Titolo… (min 2 caratteri)");
+
+        tfAuthor = new TextField();
+        tfAuthor.setPromptText("Autore… (min 2 caratteri)");
+
+        spYear = new Spinner<>();
+        spYear.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1400, 2100, 2000));
+        spYear.setEditable(true);
+
+        spLimit = new Spinner<>();
+        spLimit.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(10, 500, 50, 10));
+        spLimit.setEditable(true);
+
+        ckOnlyMyLibraries = new CheckBox("Cerca solo nelle mie librerie (login)");
+        ckOnlyMyLibraries.setSelected(false);
+
+        cbSearchMode.valueProperty().addListener((ignoreObs, ignoreOld, n) -> applySearchMode(n));
+        applySearchMode(cbSearchMode.getValue());
 
         Button btnSearch = new Button("Cerca");
         btnSearch.getStyleClass().add("primary");
-        btnSearch.setOnAction(e -> performSearch());
-        btnSearch.setTooltip(new Tooltip("Esegui la ricerca (Invio)"));
+        btnSearch.setMaxWidth(Double.MAX_VALUE);
+        btnSearch.setOnAction(_ -> doSearch(owner));
 
-        HBox searchRow = new HBox(8,
-                new Label("Cerca per:"),
-                cbSearchMode,
-                tfSearch,
-                btnSearch
+        Button btnClear = new Button("Reset");
+        btnClear.getStyleClass().add("ghost");
+        btnClear.setMaxWidth(Double.MAX_VALUE);
+        btnClear.setOnAction(_ -> {
+            tfTitle.clear();
+            tfAuthor.clear();
+            ckOnlyMyLibraries.setSelected(false);
+            data.clear();
+            clearDetail();
+            FxUtil.toast(owner.getScene(), "Campi resettati");
+        });
+
+        VBox box = new VBox(
+                10,
+                t,
+                new Separator(),
+                label("Modalità ricerca"), cbSearchMode,
+                label("Titolo"), tfTitle,
+                label("Autore"), tfAuthor,
+                label("Anno"), spYear,
+                label("Limite risultati"), spLimit,
+                ckOnlyMyLibraries,
+                new Separator(),
+                btnSearch,
+                btnClear
         );
-        searchRow.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(tfSearch, Priority.ALWAYS);
+        box.getStyleClass().add("card");
 
-        VBox header = new VBox(12, topRow, searchRow);
-        header.getStyleClass().add("appbar");
-        header.setPadding(new Insets(12, 16, 12, 16));
-        return header;
+        return box;
     }
 
-    private void updateSearchPrompt() {
-        SearchMode m = cbSearchMode.getValue();
-        if (m == SearchMode.TITLE) {
-            tfSearch.setPromptText("Titolo (es: Il signore degli anelli)");
-        } else if (m == SearchMode.AUTHOR) {
-            tfSearch.setPromptText("Autore (es: Stephen King)");
-        } else {
-            tfSearch.setPromptText("Autore e anno (es: Stephen King; 1986)");
+
+
+    private void applySearchMode(SearchMode mode) {
+        setVisibleManaged(tfTitle, false);
+        setVisibleManaged(tfAuthor, false);
+        setVisibleManaged(spYear, false);
+
+        if (mode == SearchMode.TITLE) {
+            setVisibleManaged(tfTitle, true);
+        } else if (mode == SearchMode.AUTHOR) {
+            setVisibleManaged(tfAuthor, true);
+        } else if (mode == SearchMode.TITLE_AUTHOR) {
+            setVisibleManaged(tfTitle, true);
+            setVisibleManaged(tfAuthor, true);
+        } else { // TITLE_YEAR
+            setVisibleManaged(tfTitle, true);
+            setVisibleManaged(spYear, true);
         }
     }
 
-    // ========================= CENTER =========================
+    private static void setVisibleManaged(Control c, boolean on) {
+        c.setVisible(on);
+        c.setManaged(on);
+    }
 
-    private Node buildCenter() {
-        // tabella sinistra
-        tblBooks = new TableView<>();
-        booksData = FXCollections.observableArrayList(libriRepo.all());
-        tblBooks.setItems(booksData);
+    // ---------------- TABLE (fix) ----------------
 
-        TableColumn<Book,Integer> colId = new TableColumn<>("ID");
-        colId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        colId.setPrefWidth(60);
+    private VBox buildTableCard(Stage owner) {
+        Label t = new Label("Risultati");
+        t.getStyleClass().add("card-title");
 
-        TableColumn<Book,String> colTitolo = new TableColumn<>("Titolo");
-        colTitolo.setCellValueFactory(new PropertyValueFactory<>("titolo"));
-        colTitolo.setPrefWidth(280);
+        tbl = new TableView<>(data);
 
-        TableColumn<Book,String> colAutori = new TableColumn<>("Autori");
-        colAutori.setCellValueFactory(c -> Bindings.createStringBinding(
-                () -> String.join(", ", c.getValue().getAutori())
+        // più “web”: niente tagli strani, scroll se serve
+        tbl.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        tbl.setPlaceholder(new Label("Esegui una ricerca per visualizzare risultati."));
+
+        TableColumn<Book, Integer> cId = new TableColumn<>("ID");
+        cId.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getId()));
+        cId.setPrefWidth(70);
+
+        TableColumn<Book, String> cTitle = new TableColumn<>("Titolo");
+        cTitle.setCellValueFactory(new PropertyValueFactory<>("titolo"));
+        cTitle.setPrefWidth(340);
+
+        TableColumn<Book, String> cAuthor = new TableColumn<>("Autore/i");
+        cAuthor.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(
+                v.getValue().getAutori() == null ? "" : String.join(", ", v.getValue().getAutori())
         ));
-        colAutori.setPrefWidth(260);
+        cAuthor.setPrefWidth(320);
 
-        TableColumn<Book,Integer> colAnno = new TableColumn<>("Anno");
-        colAnno.setCellValueFactory(new PropertyValueFactory<>("anno"));
-        colAnno.setPrefWidth(70);
+        TableColumn<Book, Integer> cYear = new TableColumn<>("Anno");
+        cYear.setCellValueFactory(v -> new ReadOnlyObjectWrapper<>(v.getValue().getAnno()));
+        cYear.setPrefWidth(90);
 
-        tblBooks.getColumns().addAll(colId, colTitolo, colAutori, colAnno);
-        tblBooks.setPlaceholder(new Label("Nessun libro trovato. Modifica i criteri di ricerca."));
-        tblBooks.getSelectionModel().selectedItemProperty().addListener(
-                (obs, oldSel, newSel) -> updateDetail(newSel)
-        );
+        cId.setMinWidth(70);      cId.setMaxWidth(90);
+        cTitle.setMinWidth(320);  cTitle.setMaxWidth(900);
+        cAuthor.setMinWidth(260); cAuthor.setMaxWidth(800);
+        cYear.setMinWidth(80);    cYear.setMaxWidth(120);
 
-        VBox tableBox = new VBox(
-                new Label("Risultati ricerca"),
-                tblBooks
-        );
-        VBox.setVgrow(tblBooks, Priority.ALWAYS);
-        tableBox.setPadding(new Insets(12));
-        tableBox.setSpacing(8);
+        cYear.setStyle("-fx-alignment: CENTER;");
+        cYear.setCellFactory(ignoredEvent -> new TableCell<>() {
+            @Override protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : (item == null ? "" : String.valueOf(item)));
+                setAlignment(Pos.CENTER);
+            }
+        });
 
-        // pannello di dettaglio a destra
-        Node detail = buildDetailPanel();
+        FxUtil.addColumns(tbl, List.of(cId, cTitle, cAuthor, cYear));
+        
 
-        HBox center = new HBox(12, tableBox, detail);
-        HBox.setHgrow(tableBox, Priority.ALWAYS);
-        HBox.setHgrow(detail, Priority.ALWAYS);
-        center.setPadding(new Insets(0, 12, 12, 12));
-        return center;
+
+        tbl.getSelectionModel().selectedItemProperty().addListener((ignoreignoreObs, ignoreOld, n) -> {
+            if (n != null) showDetail(owner, n);
+        });
+
+        // doppio click resta utile
+        tbl.setRowFactory(ignoredTv -> {
+            TableRow<Book> row = new TableRow<>();
+            row.setOnMouseClicked(e -> {
+                if (e.getClickCount() == 2 && !row.isEmpty()) showDetail(owner, row.getItem());
+            });
+            return row;
+        });
+
+        Button btnRefresh = new Button("Ricarica (F5)");
+        btnRefresh.getStyleClass().add("ghost");
+        btnRefresh.setOnAction(_ -> refresh(owner));
+
+        HBox actions = new HBox(10, btnRefresh);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+
+        VBox box = new VBox(10, headerRow(t, actions), tbl);
+        box.getStyleClass().add("card2");
+        VBox.setVgrow(tbl, Priority.ALWAYS);
+        return box;
     }
 
-    private Node buildDetailPanel() {
-        lblDetTitle = new Label("Seleziona un libro dalla tabella");
-        lblDetTitle.getStyleClass().add("title2");
 
-        lblDetAuthors = new Label();
-        lblDetMeta = new Label();
-        lblDetCategory = new Label();
-        lblDetAuthors.getStyleClass().add("muted");
-        lblDetMeta.getStyleClass().add("muted");
-        lblDetCategory.getStyleClass().add("muted");
+    private void openAddToLibraryDialog(Stage owner, Book book) {
+        String user = ensureLoggedIn(owner);
+        if (user == null || book == null) return;
 
-        VBox head = new VBox(4, lblDetTitle, lblDetAuthors, lblDetMeta, lblDetCategory);
+        List<Library> libs;
+        try {
+            libs = libraryService.listUserLibraries(user);
+        } catch (Exception e) {
+            FxUtil.error(owner, "Errore", "Impossibile leggere le librerie: " + e.getMessage());
+            return;
+        }
 
-        // sezione valutazioni
-        Label lblRatingTitle = new Label("Valutazioni");
-        lblRatingTitle.getStyleClass().add("title2");
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle("Aggiungi a libreria");
+        d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        lblRatingHeader = new Label("Nessuna valutazione ancora presente.");
-        lblRatingAverages = new Label();
-        lblRatingDistribution = new Label();
-        lblRatingAverages.getStyleClass().add("muted");
-        lblRatingDistribution.getStyleClass().add("muted");
+        Label h = new Label("Aggiungi libro alla tua libreria");
+        h.getStyleClass().add("title");
+        Label sub = new Label(book.getTitolo());
+        sub.getStyleClass().add("subtitle");
 
-        VBox ratingBox = new VBox(4, lblRatingHeader, lblRatingAverages, lblRatingDistribution);
-        ratingBox.setPadding(new Insets(4, 0, 0, 0));
+        ComboBox<Library> cb = getLibraryComboBox();
 
-        // sezione suggerimenti
-        Label lblSugTitle = new Label("Libri suggeriti dagli utenti");
-        lblSugTitle.getStyleClass().add("title2");
-        boxSuggestions = new VBox(4);
-        Label placeholder = new Label("Nessun suggerimento ancora presente.");
-        placeholder.getStyleClass().add("muted");
-        boxSuggestions.getChildren().add(placeholder);
+        cb.getItems().setAll(libs);
+        if (!libs.isEmpty()) cb.getSelectionModel().select(0);
 
-        // pulsanti azione
-        Button btnAddLib = new Button("Aggiungi a libreria…");
-        btnAddLib.setOnAction(e -> onAddToLibrary());
+        TextField tfNew = new TextField();
+        tfNew.setPromptText("Oppure crea nuova libreria (min 5 caratteri)");
 
-        Button btnReview = new Button("Valuta questo libro…");
-        btnReview.setOnAction(e -> onAddReview());
+        Button btnCreate = new Button("Crea");
+        btnCreate.getStyleClass().add("ghost");
 
-        Button btnSuggest = new Button("Suggerisci libri correlati…");
-        btnSuggest.setOnAction(e -> onAddSuggestion());
+        Button btnAdd = new Button("Aggiungi");
+        btnAdd.getStyleClass().add("primary");
+        btnAdd.setMaxWidth(Double.MAX_VALUE);
 
-        btnAddLib.disableProperty().bind(tblBooks.getSelectionModel().selectedItemProperty().isNull());
-        btnReview.disableProperty().bind(tblBooks.getSelectionModel().selectedItemProperty().isNull());
-        btnSuggest.disableProperty().bind(tblBooks.getSelectionModel().selectedItemProperty().isNull());
+        btnCreate.setOnAction(_ -> {
+            String name = tfNew.getText() == null ? "" : tfNew.getText().trim();
+            if (name.length() < 5) {
+                FxUtil.error(owner, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
+                return;
+            }
+            try {
+                Library lib = new Library(user, name, new HashSet<>());
+                boolean ok = libraryService.saveLibrary(lib);
+                if (!ok) throw new IllegalStateException("Creazione libreria fallita.");
+                cb.getItems().setAll(libraryService.listUserLibraries(user));
+                cb.getSelectionModel().select(cb.getItems().stream()
+                        .filter(x -> x.getNome().equals(name))
+                        .findFirst().orElse(null));
+                tfNew.clear();
+                FxUtil.toast(owner.getScene(), "Libreria creata");
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Errore", ex.getMessage());
+            }
+        });
 
-        HBox actions = new HBox(8, btnAddLib, btnReview, btnSuggest);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.setPadding(new Insets(8, 0, 0, 0));
+        btnAdd.setOnAction(_ -> {
+            Library sel = cb.getValue();
+            if (sel == null) {
+                FxUtil.error(owner, "Selezione mancante", "Seleziona una libreria.");
+                return;
+            }
+            try {
+                Set<Integer> newSet = new HashSet<>(sel.getBookIds());
+                if (newSet.contains(book.getId())) {
+                    FxUtil.toast(owner.getScene(), "Libro già presente in \"" + sel.getNome() + "\"");
+                    return;
+                }
+                newSet.add(book.getId());
+                Library updated = new Library(sel.getUserid(), sel.getNome(), newSet);
 
-        VBox content = new VBox(
-                head,
-                new Separator(),
-                lblRatingTitle,
-                ratingBox,
-                new Separator(),
-                lblSugTitle,
-                boxSuggestions,
-                new Separator(),
-                actions
-        );
-        content.setSpacing(8);
-        content.setPadding(new Insets(12));
-        content.getStyleClass().add("elevated");
+                boolean ok = libraryService.saveLibrary(updated);
+                if (!ok) {
+                    FxUtil.error(owner, "Operazione non riuscita",
+                            "Non posso aggiungere il libro. Controlla i dati.");
+                    return;
+                }
 
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setPrefWidth(420);
-        scroll.setStyle("-fx-background-color: transparent;");
+                FxUtil.toast(owner.getScene(), "Aggiunto a \"" + sel.getNome() + "\"");
+                d.close();
 
-        return scroll;
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Errore", ex.getMessage());
+            }
+        });
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+
+        grid.add(label("Libreria"), 0, 0);
+        grid.add(cb, 1, 0);
+
+        grid.add(label("Nuova libreria"), 0, 1);
+        HBox newRow = new HBox(10, tfNew, btnCreate);
+        HBox.setHgrow(tfNew, Priority.ALWAYS);
+        grid.add(newRow, 1, 1);
+
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setMinWidth(140);
+        ColumnConstraints c2 = new ColumnConstraints();
+        c2.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(c1, c2);
+
+        VBox box = new VBox(12, h, sub, new Separator(), grid, new Separator(), btnAdd);
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
     }
+
+    private static ComboBox<Library> getLibraryComboBox() {
+        ComboBox<Library>  cb = new ComboBox<>();
+        cb.setMaxWidth(Double.MAX_VALUE);
+
+        cb.setCellFactory(ignoredEvent -> new ListCell<>() {
+            @Override
+            protected void updateItem(Library item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else setText(item.getNome() + "  (" + item.getBookIds().size() + " libri)");
+            }
+        });
+        cb.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Library item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText("Seleziona libreria…");
+                else setText(item.getNome());
+            }
+        });
+        return cb;
+    }
+
+
+    // ---------------- DETAIL (aggiungo bottoni rapidi) ----------------
+
+    private VBox buildDetailCard(Stage owner) {
+        Label t = new Label("Dettaglio libro");
+        t.getStyleClass().add("card-title");
+
+        dTitle = new Label("-");
+        dTitle.getStyleClass().add("title");
+        dTitle.setWrapText(true);
+
+        dAuthors = new Label("-");
+        dAuthors.getStyleClass().add("muted");
+        dAuthors.setWrapText(true);
+
+        dMeta = new Label("-");
+        dMeta.getStyleClass().add("chip");
+
+        dCategory = new Label("-");
+        dCategory.getStyleClass().add("chip");
+
+        dPublisher = new Label("-");
+        dPublisher.getStyleClass().add("chip");
+
+        FlowPane chips = new FlowPane(10, 10, dMeta, dCategory, dPublisher);
+        chips.setPrefWrapLength(360); // adatta alla larghezza della colonna destra
+        chips.setAlignment(Pos.CENTER_LEFT);
+
+        Label rateT = new Label("Recensioni");
+        rateT.getStyleClass().add("card-title");
+
+        dAvg = new Label("-");
+        dAvg.getStyleClass().add("muted");
+        dAvg.setWrapText(true);
+
+        dStarsBox = new VBox(6);
+
+        Label sugT = new Label("Consigliati");
+        sugT.getStyleClass().add("card-title");
+        dSuggestions = new VBox(8);
+
+        Button btnAddToLibrary = new Button("Aggiungi alla mia libreria");
+        btnAddToLibrary.getStyleClass().add("primary");
+        btnAddToLibrary.setMaxWidth(Double.MAX_VALUE);
+        btnAddToLibrary.setOnAction(_ -> {
+            if (selectedBook == null) return;
+            if (ensureLoggedIn(owner) == null) return;
+            openAddToLibraryDialog(owner, selectedBook);
+        });
+
+        // Azioni rapide
+        btnRateThis = new Button("Valuta questo libro");
+        btnRateThis.getStyleClass().add("ghost");
+        btnRateThis.setMaxWidth(Double.MAX_VALUE);
+        btnRateThis.setOnAction(_ -> {
+            if (selectedBook == null) return;
+            if (ensureLoggedIn(owner) == null) return;
+            openReviewEditor(owner, selectedBook);
+        });
+
+        btnSuggestThis = new Button("Consiglia libri");
+        btnSuggestThis.getStyleClass().add("ghost");
+        btnSuggestThis.setMaxWidth(Double.MAX_VALUE);
+        btnSuggestThis.setOnAction(_ -> {
+            if (selectedBook == null) return;
+            if (ensureLoggedIn(owner) == null) return;
+            openSuggestionEditor(owner, selectedBook);
+        });
+
+        // Liste (restano utili)
+        Button btnOpenReviewList = new Button("Le mie valutazioni…");
+        btnOpenReviewList.getStyleClass().add("ghost");
+        btnOpenReviewList.setMaxWidth(Double.MAX_VALUE);
+        btnOpenReviewList.setOnAction(_ -> {
+            if (ensureLoggedIn(owner) == null) return;
+            ReviewsWindow.open(authService, reviewService, libriRepo);
+        });
+
+        Button btnOpenSugList = new Button("I miei consigli…");
+        btnOpenSugList.getStyleClass().add("ghost");
+        btnOpenSugList.setMaxWidth(Double.MAX_VALUE);
+        btnOpenSugList.setOnAction(_ -> {
+            if (ensureLoggedIn(owner) == null) return;
+            SuggestionsWindow.open(authService, suggestionService, libriRepo);
+        });
+
+        VBox box = new VBox(
+                10,
+                t,
+                new Separator(),
+                dTitle, dAuthors,
+                chips,
+                new Separator(),
+                rateT, dAvg, dStarsBox,          
+                new Separator(),
+                sugT, dSuggestions,
+                new Separator(),
+                btnAddToLibrary,
+                btnRateThis,
+                btnSuggestThis,
+                btnOpenReviewList,
+                btnOpenSugList
+        );
+        box.getStyleClass().add("card");
+
+        refreshUserUi();
+        return box;
+    }
+
+
+    private static HBox starsRow(String label, double value0to5) {
+        int full = (int) Math.round(value0to5); // 0..5
+        full = Math.max(0, Math.min(5, full));
+
+        Label name = new Label(label);
+        name.getStyleClass().add("star-label");
+        name.setMinWidth(110);
+
+        HBox stars = new HBox(2);
+        for (int i = 1; i <= 5; i++) {
+            Label s = new Label("★");
+            s.getStyleClass().add("star");
+            if (i > full) s.getStyleClass().add("off");
+            stars.getChildren().add(s);
+        }
+
+        Label num = new Label(" " + DF1.format(value0to5));
+        num.getStyleClass().add("muted");
+
+        HBox row = new HBox(10, name, stars, num);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+
 
     private Node buildStatusBar() {
-        lblStatus = new Label("Pronto.");
-        HBox bar = new HBox(lblStatus);
+        lblStatus = new Label("Pronto");
+        lblStatus.getStyleClass().add("muted");
+
+        Label hint = new Label("Invio = Cerca • Doppio click = Dettagli • F5 = Ricarica");
+        hint.getStyleClass().add("muted");
+
+        HBox bar = new HBox(14, lblStatus, new Pane(), hint);
+        HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);
         bar.getStyleClass().add("statusbar");
-        bar.setPadding(new Insets(6, 12, 6, 12));
         return bar;
     }
 
-    // ========================= ACTIONS =========================
+    // ---------------- Search logic ----------------
 
-    private void refreshAll() {
+    private void doSearch(Stage owner) {
+        SearchMode mode = cbSearchMode.getValue();
+        int limit = spLimit.getValue();
+
+        try {
+            List<Book> res;
+
+            if (mode == SearchMode.TITLE) {
+                String title = safe(tfTitle.getText());
+                if (title.length() < 2) throw new IllegalArgumentException("Inserisci almeno 2 caratteri nel titolo.");
+                res = searchService.cercaLibroPerTitolo(title);
+
+            } else if (mode == SearchMode.AUTHOR) {
+                String author = safe(tfAuthor.getText());
+                if (author.length() < 2) throw new IllegalArgumentException("Inserisci almeno 2 caratteri nell'autore.");
+                res = searchService.cercaLibroPerAutore(author);
+
+            } else if (mode == SearchMode.TITLE_AUTHOR) {
+                String title = safe(tfTitle.getText());
+                String author = safe(tfAuthor.getText());
+                if (title.length() < 2) throw new IllegalArgumentException("Inserisci almeno 2 caratteri nel titolo.");
+                if (author.length() < 2) throw new IllegalArgumentException("Inserisci almeno 2 caratteri nell'autore.");
+
+                res = searchService.cercaLibroPerTitolo(title).stream()
+                        .filter(b -> b.getAutori() != null && b.getAutori().stream()
+                                .anyMatch(a -> a.toLowerCase().contains(author.toLowerCase())))
+                        .collect(Collectors.toList());
+
+            } else { // TITLE_YEAR
+                String title = safe(tfTitle.getText());
+                if (title.length() < 2) throw new IllegalArgumentException("Inserisci almeno 2 caratteri nel titolo.");
+                int year = spYear.getValue();
+
+                res = searchService.cercaLibroPerTitolo(title).stream()
+                        .filter(b -> b.getAnno() != null && b.getAnno() == year)
+                        .collect(Collectors.toList());
+            }
+
+            if (ckOnlyMyLibraries.isSelected()) {
+                String user = ensureLoggedIn(owner);
+                if (user == null) return;
+
+                Set<Integer> myBookIds = libraryService.listUserLibraries(user).stream()
+                        .flatMap(l -> l.getBookIds().stream())
+                        .collect(Collectors.toSet());
+
+                res = res.stream().filter(b -> myBookIds.contains(b.getId())).collect(Collectors.toList());
+            }
+
+            res = res.stream().limit(limit).collect(Collectors.toList());
+
+            data.setAll(res);
+            lblStatus.setText("Risultati: " + res.size());
+            clearDetail();
+            if (!res.isEmpty()) tbl.getSelectionModel().select(0);
+
+        } catch (Exception ex) {
+            FxUtil.error(owner, "Ricerca non valida", ex.getMessage());
+        }
+    }
+
+    private void refresh(Stage owner) {
         try {
             libriRepo.load();
-            booksData.setAll(libriRepo.all());
-            tblBooks.getSelectionModel().clearSelection();
-            clearDetail();
-            setStatus("Dati aggiornati (" + libriRepo.size() + " libri).");
-        } catch (Exception ex) {
-            showError("Errore durante l'aggiornamento dei dati: " + ex.getMessage());
+            FxUtil.toast(owner.getScene(), "Dataset ricaricato: " + libriRepo.size() + " libri");
+            lblStatus.setText("Dataset ricaricato");
+        } catch (Exception e) {
+            FxUtil.error(owner, "Errore", "Errore nel refresh del dataset:\n" + e.getMessage());
         }
     }
 
-    private void performSearch() {
-        String q = tfSearch.getText() == null ? "" : tfSearch.getText().trim();
-        SearchMode m = cbSearchMode.getValue();
-        List<Book> result;
-        try {
-            switch (m) {
-                case TITLE:
-                    result = searchService.cercaLibroPerTitolo(q);
-                    break;
-                case AUTHOR:
-                    result = searchService.cercaLibroPerAutore(q);
-                    break;
-                case AUTHOR_YEAR:
-                    String[] parts = q.split("[;,]", 2);
-                    if (parts.length < 2) {
-                        showError("Per la ricerca Autore + anno usa il formato:\n\"Autore; 2005\"");
-                        return;
-                    }
-                    String autore = parts[0].trim();
-                    String annoStr = parts[1].trim();
-                    int anno = Integer.parseInt(annoStr);
-                    result = searchService.cercaLibroPerAutoreEAnno(autore, anno);
-                    break;
-                default:
-                    result = libriRepo.all();
-            }
-            booksData.setAll(result);
-            if (result.isEmpty()) {
-                setStatus("Nessun libro trovato.");
-                clearDetail();
-            } else {
-                setStatus("Trovati " + result.size() + " libri.");
-            }
-        } catch (NumberFormatException nfe) {
-            showError("Anno non valido. Inserisci un numero intero, es. 1999.");
-        } catch (Exception ex) {
-            showError("Errore durante la ricerca: " + ex.getMessage());
-        }
-    }
+    // ---------------- Detail ----------------
 
-    private void updateDetail(Book b) {
-        if (b == null) {
-            clearDetail();
-            return;
-        }
-        lblDetTitle.setText(b.getTitolo());
-        lblDetAuthors.setText(String.join(", ", b.getAutori()));
+    private void showDetail(Stage ignoredOwner, Book b) {
+        if (b == null) return;
 
-        String meta = "ID " + b.getId();
-        if (b.getAnno() != null) meta += " • Anno " + b.getAnno();
-        if (b.getEditore() != null && !b.getEditore().isBlank()) meta += " • " + b.getEditore();
-        lblDetMeta.setText(meta);
+        selectedBook = b;
+        refreshUserUi();
 
-        if (b.getCategoria() != null && !b.getCategoria().isBlank()) {
-            lblDetCategory.setText("Categoria: " + b.getCategoria());
-        } else {
-            lblDetCategory.setText("");
-        }
+        dTitle.setText(nvl(b.getTitolo(), "-"));
+        dAuthors.setText(b.getAutori() == null ? "-" : String.join(", ", b.getAutori()));
+
+        String meta = "ID " + b.getId() + " • " + (b.getAnno() == null ? "Anno n/d" : b.getAnno());
+        dMeta.setText(meta);
+
+        dCategory.setText(nvl(b.getCategoria(), "Categoria n/d"));
+        dPublisher.setText(nvl(b.getEditore(), "Editore n/d"));
 
         try {
-            // --- Valutazioni ---
             AggregationService.ReviewStats rs = aggregationService.getReviewStats(b.getId());
-            if (rs.count == 0) {
-                lblRatingHeader.setText("Nessuna valutazione ancora presente.");
-                lblRatingAverages.setText("");
-                lblRatingDistribution.setText("");
+            dStarsBox.getChildren().clear();
+
+            if (rs == null || rs.count == 0) {
+                dAvg.setText("Nessuna valutazione disponibile.");
             } else {
-                lblRatingHeader.setText("Valutazioni degli utenti (" + rs.count + ")");
+                dAvg.setText("Media voto finale: " + DF1.format(rs.mediaVotoFinale) + "  |  N. valutazioni: " + rs.count);
 
-                // prima il voto finale medio, poi le medie per criterio
-                StringBuilder sbAvg = new StringBuilder();
-                sbAvg.append("Voto finale medio: ").append(DF1.format(rs.mediaVotoFinale)).append(" / 5\n\n");
-                sbAvg.append("Medie per criterio (1–5):\n");
-                sbAvg.append("• Stile: ").append(DF1.format(rs.mediaStile)).append(" / 5\n");
-                sbAvg.append("• Contenuto: ").append(DF1.format(rs.mediaContenuto)).append(" / 5\n");
-                sbAvg.append("• Gradevolezza: ").append(DF1.format(rs.mediaGradevolezza)).append(" / 5\n");
-                sbAvg.append("• Originalità: ").append(DF1.format(rs.mediaOriginalita)).append(" / 5\n");
-                sbAvg.append("• Edizione: ").append(DF1.format(rs.mediaEdizione)).append(" / 5");
-                lblRatingAverages.setText(sbAvg.toString());
-
-                String dist = rs.distribuzioneVoti.entrySet().stream()
-                        .map(e -> {
-                            int c = e.getValue();
-                            String label = (c == 1) ? "voto" : "voti";
-                            return e.getKey() + "★ — " + c + " " + label;
-                        })
-                        .collect(Collectors.joining("   "));
-                lblRatingDistribution.setText("Distribuzione voti finali:\n" + dist);
+                dStarsBox.getChildren().addAll(
+                        starsRow("Stile", rs.mediaStile),
+                        starsRow("Contenuto", rs.mediaContenuto),
+                        starsRow("Gradevolezza", rs.mediaGradevolezza),
+                        starsRow("Originalità", rs.mediaOriginalita),
+                        starsRow("Edizione", rs.mediaEdizione)
+                );
             }
+        } catch (Exception e) {
+            dAvg.setText("Errore aggregazione: " + e.getMessage());
+            if (dStarsBox != null) dStarsBox.getChildren().clear();
+        }
 
-            // --- Suggerimenti ---
+        try {
             AggregationService.SuggestionsStats ss = aggregationService.getSuggestionsStats(b.getId());
-            boxSuggestions.getChildren().clear();
-            if (ss.suggeritiCount.isEmpty()) {
-                Label noSug = new Label("Nessun suggerimento ancora presente.");
-                noSug.getStyleClass().add("muted");
-                boxSuggestions.getChildren().add(noSug);
+            dSuggestions.getChildren().clear();
+
+            if (ss == null || ss.suggeritiCount == null || ss.suggeritiCount.isEmpty()) {
+                Label none = new Label("Nessun consiglio disponibile.");
+                none.getStyleClass().add("muted");
+                dSuggestions.getChildren().add(none);
             } else {
-                for (Map.Entry<Integer,Integer> e : ss.suggeritiCount.entrySet()) {
-                    Book sug = libriRepo.findById(e.getKey());
-                    String titolo = sug != null ? sug.getTitolo() : ("Libro ID " + e.getKey());
-                    int count = e.getValue();
-                    String labelUtenti = (count == 1) ? "utente" : "utenti";
-                    Label row = new Label("• " + titolo + " (ID " + e.getKey() + ") — suggerito da " + count + " " + labelUtenti);
-                    boxSuggestions.getChildren().add(row);
+                int shown = 0;
+                for (Integer id : ss.suggeritiCount.keySet()) {
+                    Book sb = libriRepo.findById(id);
+                    if (sb == null) continue;
+
+                    int count = ss.suggeritiCount.getOrDefault(id, 0);
+
+                    Button link = new Button(sb.getTitolo() + "  (" + count + ")");
+                    link.getStyleClass().add("ghost");
+                    link.setMaxWidth(Double.MAX_VALUE);
+                    link.setOnAction(_ -> {
+                        Optional<Book> match = data.stream().filter(x -> x.getId() == sb.getId()).findFirst();
+                        match.ifPresentOrElse(
+                                m -> tbl.getSelectionModel().select(m),
+                                () -> showDetail(ignoredOwner, sb)
+                        );
+                    });
+
+                    dSuggestions.getChildren().add(link);
+                    shown++;
+                    if (shown >= 5) break;
                 }
             }
-        } catch (Exception ex) {
-            showError("Errore nel caricamento delle statistiche: " + ex.getMessage());
+        } catch (Exception e) {
+            dSuggestions.getChildren().setAll(labelMuted("Errore nel caricamento consigli: " + e.getMessage()));
         }
     }
 
     private void clearDetail() {
-        lblDetTitle.setText("Seleziona un libro dalla tabella");
-        lblDetAuthors.setText("");
-        lblDetMeta.setText("");
-        lblDetCategory.setText("");
-        lblRatingHeader.setText("Nessuna valutazione ancora presente.");
-        lblRatingAverages.setText("");
-        lblRatingDistribution.setText("");
-        boxSuggestions.getChildren().clear();
-        Label noSug = new Label("Nessun suggerimento ancora presente.");
-        noSug.getStyleClass().add("muted");
-        boxSuggestions.getChildren().add(noSug);
+        selectedBook = null;
+        refreshUserUi();
+
+        dTitle.setText("-");
+        dAuthors.setText("-");
+        dMeta.setText("-");
+        dCategory.setText("-");
+        dPublisher.setText("-");
+        dAvg.setText("-");
+        if (dStarsBox != null) dStarsBox.getChildren().setAll(labelMuted("Nessuna valutazione disponibile."));
+        dSuggestions.getChildren().setAll(labelMuted("Seleziona un libro per vedere i dettagli."));
     }
 
-    // ========================= USER / DIALOG =========================
+    // ---------------- Quick actions: Review / Suggestion ----------------
 
-    private void refreshUserUi() {
-        String user = authService.getCurrentUserid();
-        if (user == null) {
-            lblUser.setText("Ospite");
-            if (!lblUser.getStyleClass().contains("muted")) {
-                lblUser.getStyleClass().add("muted");
-            }
-            btnLogin.setVisible(true);
-            btnLogin.setManaged(true);
-            btnRegister.setVisible(true);
-            btnRegister.setManaged(true);
-            btnLogout.setVisible(false);
-            btnLogout.setManaged(false);
-        } else {
-            lblUser.setText("Utente: " + user);
-            lblUser.getStyleClass().remove("muted");
-            btnLogin.setVisible(false);
-            btnLogin.setManaged(false);
-            btnRegister.setVisible(false);
-            btnRegister.setManaged(false);
-            btnLogout.setVisible(true);
-            btnLogout.setManaged(true);
-        }
-    }
+    private void openReviewEditor(Stage owner, Book book) {
+        String user = ensureLoggedIn(owner);
+        if (user == null || book == null) return;
 
-    private String ensureLoggedIn() {
-        String user = authService.getCurrentUserid();
-        if (user == null) {
-            showError("Per usare questa funzione è necessario essere registrati ed effettuare il login.");
-            return null;
-        }
-        return user;
-    }
-
-    /** Registrazione + login automatico. */
-    private void doRegister() {
-        Dialog<String[]> dlg = new Dialog<>();
-        dlg.setTitle("Registrazione nuovo utente");
-        dlg.setHeaderText("Compila tutti i campi richiesti");
-
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        TextField tfUser   = new TextField();
-        PasswordField pfPw = new PasswordField();
-        TextField tfNome   = new TextField();
-        TextField tfCogn   = new TextField();
-        TextField tfCF     = new TextField();
-        TextField tfMail   = new TextField();
-
-        tfUser.setPromptText("Scegli uno userid");
-        tfNome.setPromptText("Nome");
-        tfCogn.setPromptText("Cognome");
-        tfCF.setPromptText("Codice fiscale");
-        tfMail.setPromptText("Email");
-
-        grid.add(new Label("Userid"), 0, 0); grid.add(tfUser, 1, 0);
-        grid.add(new Label("Password"), 0, 1); grid.add(pfPw, 1, 1);
-        grid.add(new Label("Nome"), 0, 2); grid.add(tfNome, 1, 2);
-        grid.add(new Label("Cognome"), 0, 3); grid.add(tfCogn, 1, 3);
-        grid.add(new Label("Codice fiscale"), 0, 4); grid.add(tfCF, 1, 4);
-        grid.add(new Label("Email"), 0, 5); grid.add(tfMail, 1, 5);
-
-        dlg.getDialogPane().setContent(grid);
-        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-
-        dlg.setResultConverter(bt -> {
-            if (bt != ButtonType.OK) return null;
-            String u  = tfUser.getText().trim();
-            String pw = pfPw.getText();
-            String n  = tfNome.getText().trim();
-            String c  = tfCogn.getText().trim();
-            String cf = tfCF.getText().trim();
-            String em = tfMail.getText().trim();
-            if (u.isEmpty() || pw.isEmpty()) {
-                showError("Userid e password sono obbligatori.");
-                return null;
-            }
-            return new String[]{u, pw, n, c, cf, em};
-        });
-
-        String[] data = dlg.showAndWait().orElse(null);
-        if (data == null) return;
-
-        String userid  = data[0];
-        String pwPlain = data[1];
-        String nome    = data[2];
-        String cognome = data[3];
-        String cf      = data[4];
-        String email   = data[5];
-
+        Review found = null;
         try {
-            String hash = AuthService.sha256(pwPlain);
-            User u = new User(userid, hash, nome, cognome, cf, email);
-            boolean ok = authService.registrazione(u);
-            if (!ok) {
-                showError("Registrazione non riuscita.\nLo userid potrebbe essere già esistente.");
-                return;
-            }
-            boolean loginOk = authService.login(userid, pwPlain);
-            if (loginOk) {
-                refreshUserUi();
-                setStatus("Registrazione completata e login effettuato come " + userid);
-            } else {
-                setStatus("Registrazione completata. Effettua il login con le tue credenziali.");
-            }
-        } catch (Exception e) {
-            showError("Errore in registrazione: " + e.getMessage());
-        }
-    }
-
-    private void doLogin() {
-        Dialog<String[]> dlg = new Dialog<>();
-        dlg.setTitle("Login");
-        dlg.setHeaderText("Inserisci userid e password");
-
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        TextField tfUser   = new TextField();
-        PasswordField pfPw = new PasswordField();
-
-        grid.add(new Label("Userid"), 0, 0); grid.add(tfUser, 1, 0);
-        grid.add(new Label("Password"), 0, 1); grid.add(pfPw, 1, 1);
-
-        dlg.getDialogPane().setContent(grid);
-        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-        dlg.setResultConverter(bt -> bt == ButtonType.OK
-                ? new String[]{ tfUser.getText().trim(), pfPw.getText() }
-                : null);
-
-        String[] creds = dlg.showAndWait().orElse(null);
-        if (creds == null) return;
-
-        try {
-            boolean ok = authService.login(creds[0], creds[1]);
-            if (!ok) {
-                showError("Credenziali errate.");
-            } else {
-                refreshUserUi();
-                setStatus("Login effettuato come " + authService.getCurrentUserid());
-            }
-        } catch (Exception e) {
-            showError("Errore nel login: " + e.getMessage());
-        }
-    }
-
-    private void onAddToLibrary() {
-        Book sel = tblBooks.getSelectionModel().getSelectedItem();
-        if (sel == null) return;
-        String user = ensureLoggedIn();
-        if (user == null) return;
-
-        try {
-            List<Library> libs = libraryService.listUserLibraries(user);
-
-            Dialog<ButtonType> dlg = new Dialog<>();
-            if (libs.isEmpty()) {
-                dlg.setTitle("Crea la tua prima libreria");
-                dlg.setHeaderText("Non hai ancora nessuna libreria.\n" +
-                        "Scrivi un nome per crearne una nuova e aggiungere il libro selezionato.");
-            } else {
-                dlg.setTitle("Aggiungi a libreria");
-                dlg.setHeaderText("Seleziona una libreria esistente o creane una nuova.");
-            }
-
-            GridPane grid = new GridPane();
-            grid.setHgap(8);
-            grid.setVgap(8);
-            grid.setPadding(new Insets(12));
-
-            ComboBox<String> cbLibs = new ComboBox<>();
-            cbLibs.getItems().addAll(
-                    libs.stream().map(Library::getNome).collect(Collectors.toList())
-            );
-            if (libs.isEmpty()) {
-                cbLibs.setPromptText("Nessuna libreria esistente");
-                cbLibs.setDisable(true);
-            } else {
-                cbLibs.setPromptText("Scegli libreria esistente");
-            }
-
-            TextField tfNewName = new TextField();
-            tfNewName.setPromptText("Nome nuova libreria");
-
-            grid.add(new Label("Libreria esistente"), 0, 0);
-            grid.add(cbLibs, 1, 0);
-            grid.add(new Label("Nuova libreria"), 0, 1);
-            grid.add(tfNewName, 1, 1);
-
-            dlg.getDialogPane().setContent(grid);
-            dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-
-            Optional<ButtonType> res = dlg.showAndWait();
-            if (!res.isPresent() || res.get() != ButtonType.OK) {
-                return;
-            }
-
-            String rawNewName = tfNewName.getText().trim();
-            String chosenName = rawNewName.isEmpty() ? cbLibs.getValue() : rawNewName;
-
-            if (chosenName == null || chosenName.isBlank()) {
-                showError("Devi scegliere o creare una libreria.");
-                return;
-            }
-
-            Library existing = libs.stream()
-                    .filter(l -> l.getNome().equals(chosenName))
-                    .findFirst()
-                    .orElse(null);
-
-            Set<Integer> ids = new LinkedHashSet<>();
-            if (existing != null) {
-                ids.addAll(existing.getBookIds());
-            }
-            ids.add(sel.getId());
-
-            Library lib = new Library(user, chosenName, ids);
-            boolean ok = libraryService.saveLibrary(lib);
-            if (ok) {
-                setStatus("Libro aggiunto alla libreria \"" + lib.getNome() + "\"");
-            } else {
-                showError("Impossibile salvare la libreria.");
-            }
-
-        } catch (Exception e) {
-            showError("Errore nel salvataggio libreria: " + e.getMessage());
-        }
-    }
-
-    private void onAddReview() {
-        Book sel = tblBooks.getSelectionModel().getSelectedItem();
-        if (sel == null) return;
-        String user = ensureLoggedIn();
-        if (user == null) return;
-
-        Dialog<Review> dlg = new Dialog<>();
-        dlg.setTitle("Valuta libro");
-        dlg.setHeaderText("Inserisci una valutazione da 1 a 5 per ogni criterio");
-
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        Spinner<Integer> spS = spinner15();
-        Spinner<Integer> spC = spinner15();
-        Spinner<Integer> spG = spinner15();
-        Spinner<Integer> spO = spinner15();
-        Spinner<Integer> spE = spinner15();
-        TextField tfComm = new TextField();
-        tfComm.setPromptText("Commento (max 256 caratteri)");
-
-        grid.add(new Label("Stile"), 0, 0); grid.add(spS, 1, 0);
-        grid.add(new Label("Contenuto"), 0, 1); grid.add(spC, 1, 1);
-        grid.add(new Label("Gradevolezza"), 0, 2); grid.add(spG, 1, 2);
-        grid.add(new Label("Originalità"), 0, 3); grid.add(spO, 1, 3);
-        grid.add(new Label("Edizione"), 0, 4); grid.add(spE, 1, 4);
-        grid.add(new Label("Commento"), 0, 5); grid.add(tfComm, 1, 5);
-
-        dlg.getDialogPane().setContent(grid);
-        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-
-        dlg.setResultConverter(bt -> {
-            if (bt != ButtonType.OK) return null;
-            int stile = spS.getValue();
-            int cont = spC.getValue();
-            int grad = spG.getValue();
-            int orig = spO.getValue();
-            int ed   = spE.getValue();
-            String comm = tfComm.getText();
-            if (comm != null && comm.length() > 256) {
-                showError("Il commento supera i 256 caratteri.");
-                return null;
-            }
-            int votoFinale = Review.calcolaVotoFinale(stile, cont, grad, orig, ed);
-            return new Review(user, sel.getId(), stile, cont, grad, orig, ed, votoFinale, comm);
-        });
-
-        Review r = dlg.showAndWait().orElse(null);
-        if (r == null) return;
-
-        try {
-            boolean ok = reviewService.inserisciValutazione(r);
-            if (!ok) {
-                showError("Valutazione non accettata.\n" +
-                        "Controlla che il libro sia presente in almeno una tua libreria e che tu non lo abbia già valutato.");
-            } else {
-                setStatus("Valutazione salvata.");
-                updateDetail(sel);
-            }
-        } catch (Exception e) {
-            showError("Errore nel salvataggio della valutazione: " + e.getMessage());
-        }
-    }
-
-    private void onAddSuggestion() {
-        Book sel = tblBooks.getSelectionModel().getSelectedItem();
-        if (sel == null) return;
-        String user = ensureLoggedIn();
-        if (user == null) return;
-
-        Dialog<List<Integer>> dlg = new Dialog<>();
-        dlg.setTitle("Suggerisci libri collegati");
-        dlg.setHeaderText(
-                "Inserisci fino a 3 ID di libri presenti nelle tue librerie.\n" +
-                "(Usa l'ID numerico del libro, NON il titolo.)");
-
-        GridPane grid = new GridPane();
-        grid.setHgap(8);
-        grid.setVgap(8);
-        grid.setPadding(new Insets(12));
-
-        TextField tf1 = new TextField();
-        TextField tf2 = new TextField();
-        TextField tf3 = new TextField();
-        tf1.setPromptText("ID libro 1 (obbligatorio)");
-        tf2.setPromptText("ID libro 2 (opzionale)");
-        tf3.setPromptText("ID libro 3 (opzionale)");
-
-        grid.add(new Label("Suggerimento 1"), 0, 0); grid.add(tf1, 1, 0);
-        grid.add(new Label("Suggerimento 2"), 0, 1); grid.add(tf2, 1, 1);
-        grid.add(new Label("Suggerimento 3"), 0, 2); grid.add(tf3, 1, 2);
-
-        dlg.getDialogPane().setContent(grid);
-        dlg.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, ButtonType.OK);
-
-        dlg.setResultConverter(bt -> {
-            if (bt != ButtonType.OK) return null;
-            List<Integer> ids = new ArrayList<>();
-            for (TextField tf : List.of(tf1, tf2, tf3)) {
-                String s = tf.getText().trim();
-                if (s.isEmpty()) continue;
-                try {
-                    ids.add(Integer.parseInt(s));
-                } catch (NumberFormatException nfe) {
-                    showError("Gli ID devono essere numeri interi.");
-                    return null;
+            for (Review r : reviewService.listByUser(user)) {
+                if (r.getBookId() == book.getId()) {
+                    found = r;
+                    break;
                 }
             }
-            if (ids.isEmpty()) {
-                showError("Inserisci almeno un ID di libro da suggerire.");
-                return null;
+        } catch (Exception e) {
+            FxUtil.error(owner, "Errore", "Impossibile leggere le tue valutazioni: " + e.getMessage());
+            return;
+        }
+
+        final Review existing = found;
+        final boolean editing = (existing != null);
+
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle(editing ? "Modifica valutazione" : "Nuova valutazione");
+        d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        Label h = new Label(editing ? "Aggiorna la tua valutazione" : "Valuta questo libro");
+        h.getStyleClass().add("title");
+        Label sub = new Label(book.getTitolo());
+        sub.getStyleClass().add("subtitle");
+
+        Spinner<Integer> sStile = spinner1to5();
+        Spinner<Integer> sCont = spinner1to5();
+        Spinner<Integer> sGrad = spinner1to5();
+        Spinner<Integer> sOrig = spinner1to5();
+        Spinner<Integer> sEdiz = spinner1to5();
+
+        TextArea comment = new TextArea();
+        comment.setPromptText("Commento (max 256 caratteri) — opzionale");
+        comment.setWrapText(true);
+
+        if (editing) {
+            sStile.getValueFactory().setValue(existing.getStile());
+            sCont.getValueFactory().setValue(existing.getContenuto());
+            sGrad.getValueFactory().setValue(existing.getGradevolezza());
+            sOrig.getValueFactory().setValue(existing.getOriginalita());
+            sEdiz.getValueFactory().setValue(existing.getEdizione());
+            comment.setText(existing.getCommento() == null ? "" : existing.getCommento());
+        }
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+
+        int r = 0;
+        grid.add(label("Stile (1-5)"), 0, r); grid.add(sStile, 1, r++);
+        grid.add(label("Contenuto (1-5)"), 0, r); grid.add(sCont, 1, r++);
+        grid.add(label("Gradevolezza (1-5)"), 0, r); grid.add(sGrad, 1, r++);
+        grid.add(label("Originalità (1-5)"), 0, r); grid.add(sOrig, 1, r++);
+        grid.add(label("Edizione (1-5)"), 0, r); grid.add(sEdiz, 1, ++r);
+
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setMinWidth(170);
+        ColumnConstraints c2 = new ColumnConstraints();
+        c2.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(c1, c2);
+
+        Label hint = labelMuted("Nota: puoi valutare un libro solo se è presente in almeno una tua libreria.");
+
+        Button save = new Button(editing ? "Aggiorna valutazione" : "Salva valutazione");
+        save.getStyleClass().add("primary");
+        save.setMaxWidth(Double.MAX_VALUE);
+
+        save.setOnAction(_ -> {
+            try {
+                String comm = comment.getText() == null ? "" : comment.getText().trim();
+                if (comm.length() > 256) throw new IllegalArgumentException("Commento troppo lungo (max 256).");
+
+                int stile = sStile.getValue();
+                int cont = sCont.getValue();
+                int grad = sGrad.getValue();
+                int orig = sOrig.getValue();
+                int ediz = sEdiz.getValue();
+
+                int votoFinale = (int) Math.round((stile + cont + grad + orig + ediz) / 5.0);
+
+                Review newR = new Review(user, book.getId(), stile, cont, grad, orig, ediz, votoFinale, comm);
+
+                boolean ok = editing ? reviewService.updateReview(newR)
+                                    : reviewService.inserisciValutazione(newR);
+
+                if (!ok) {
+                    FxUtil.error(owner, "Operazione non riuscita",
+                            "Non posso salvare la valutazione.\n" +
+                            "Controlla che il libro sia in una tua libreria e che i dati siano validi.");
+                    return;
+                }
+
+                FxUtil.toast(owner.getScene(), editing ? "Valutazione aggiornata" : "Valutazione salvata");
+                showDetail(owner, book);
+                d.close();
+
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Errore", ex.getMessage());
             }
-            return ids;
         });
 
-        List<Integer> ids = dlg.showAndWait().orElse(null);
-        if (ids == null) return;
+        VBox box = new VBox(12, h, sub, new Separator(), grid, comment, hint, new Separator(), save);
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
 
-        try {
-            Suggestion sug = new Suggestion(user, sel.getId(), ids);
-            boolean ok = suggestionService.inserisciSuggerimento(sug);
-            if (!ok) {
-                showError("Suggerimento non accettato.\n" +
-                        "Puoi indicare al massimo 3 libri diversi, presenti nelle tue librerie e differenti da questo libro.");
-            } else {
-                setStatus("Suggerimento registrato.");
-                updateDetail(sel);
-            }
-        } catch (Exception e) {
-            showError("Errore nel salvataggio del suggerimento: " + e.getMessage());
-        }
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
     }
 
-    // ========================= UTIL =========================
 
-    private Spinner<Integer> spinner15() {
+        private void openSuggestionEditor(Stage owner, Book book) {
+        String user = ensureLoggedIn(owner);
+        if (user == null || book == null) return;
+
+        // 1) Carico SOLO libri presenti nelle librerie dell’utente (escluso il libro base)
+        List<Book> myBooks;
+        try {
+            Set<Integer> myIds = libraryService.listUserLibraries(user).stream()
+                    .map(Library::getBookIds)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
+
+            myIds.remove(book.getId());
+
+            // LinkedHashMap per eliminare doppioni per ID
+            LinkedHashMap<Integer, Book> map = new LinkedHashMap<>();
+            for (Integer id : myIds) {
+                Book b = libriRepo.findById(id);
+                if (b != null) map.put(b.getId(), b);
+            }
+
+            myBooks = new ArrayList<>(map.values());
+            myBooks.sort(Comparator.comparing(
+                    b -> b.getTitolo() == null ? "" : b.getTitolo(),
+                    String.CASE_INSENSITIVE_ORDER
+            ));
+
+        } catch (Exception e) {
+            FxUtil.error(owner, "Errore", "Impossibile leggere le tue librerie: " + e.getMessage());
+            return;
+        }
+
+        if (myBooks.isEmpty()) {
+            FxUtil.error(owner, "Nessun libro selezionabile",
+                    "Non hai libri nelle tue librerie da poter consigliare.\n" +
+                    "Aggiungi prima qualche libro alla tua libreria e riprova.");
+            return;
+        }
+
+        // 2) Dialog
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle("Consiglia libri");
+        d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        Label h = new Label("Consiglia libri correlati");
+        h.getStyleClass().add("title");
+
+        Label sub = new Label("Libro base: " + (book.getTitolo() == null ? "" : book.getTitolo()));
+        sub.getStyleClass().add("subtitle");
+        sub.setWrapText(true);
+
+        Label hint = labelMuted(
+                """
+                        Puoi consigliare fino a 3 libri.
+                        Mostro solo i libri presenti nelle tue librerie.
+                        Suggerimento: scrivi nel campo per filtrare (titolo / ID)."""
+        );
+
+        ComboBox<Book> c1 = suggestCombo(myBooks);
+        ComboBox<Book> c2 = suggestCombo(myBooks);
+        ComboBox<Book> c3 = suggestCombo(myBooks);
+
+        Button save = new Button("Salva consiglio");
+        save.getStyleClass().add("primary");
+        save.setMaxWidth(Double.MAX_VALUE);
+        save.setDisable(true);
+
+        Runnable refreshSave = () -> {
+            boolean any = (c1.getValue() != null) || (c2.getValue() != null) || (c3.getValue() != null);
+            save.setDisable(!any);
+        };
+
+        // anti-duplicati “vero”
+        Runnable enforceNoDuplicates = () -> {
+            Book b1 = c1.getValue();
+            Book b2 = c2.getValue();
+            Book b3 = c3.getValue();
+
+            if (b1 != null && b2 != null && b1.getId() == b2.getId()) c2.setValue(null);
+            if (b1 != null && b3 != null && b1.getId() == b3.getId()) c3.setValue(null);
+            if (b2 != null && b3 != null && b2.getId() == b3.getId()) c3.setValue(null);
+
+            refreshSave.run();
+        };
+
+        c1.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
+        c2.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
+        c3.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
+
+        save.setOnAction(_ -> {
+            try {
+                LinkedHashSet<Integer> ids = new LinkedHashSet<>();
+                if (c1.getValue() != null) ids.add(c1.getValue().getId());
+                if (c2.getValue() != null) ids.add(c2.getValue().getId());
+                if (c3.getValue() != null) ids.add(c3.getValue().getId());
+
+                if (ids.isEmpty()) {
+                    FxUtil.error(owner, "Selezione mancante", "Seleziona almeno 1 libro da consigliare.");
+                    return;
+                }
+                if (ids.contains(book.getId())) {
+                    FxUtil.error(owner, "Non valido", "Non puoi consigliare lo stesso libro base.");
+                    return;
+                }
+
+
+                Suggestion s = new Suggestion(user, book.getId(), new ArrayList<>(ids));
+                boolean ok = suggestionService.inserisciSuggerimento(s);
+
+                if (!ok) {
+                    FxUtil.error(owner, "Operazione non riuscita",
+                            "Non posso salvare il consiglio.\n" +
+                            "Controlla che i libri scelti siano nelle tue librerie e che siano massimo 3.");
+                    return;
+                }
+
+                aggregationService = new AggregationService(
+                        dataDir.resolve("ValutazioniLibri.dati"),
+                        dataDir.resolve("ConsigliLibri.dati")
+                );
+
+                FxUtil.toast(owner.getScene(), "Consiglio salvato");
+                showDetail(owner, book);
+                d.close();
+
+
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Errore", ex.getMessage());
+            }
+        });
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(label("Libro consigliato 1"), 0, 0); grid.add(c1, 1, 0);
+        grid.add(label("Libro consigliato 2"), 0, 1); grid.add(c2, 1, 1);
+        grid.add(label("Libro consigliato 3"), 0, 2); grid.add(c3, 1, 2);
+
+        ColumnConstraints cc1 = new ColumnConstraints();
+        cc1.setMinWidth(170);
+        ColumnConstraints cc2 = new ColumnConstraints();
+        cc2.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(cc1, cc2);
+
+        VBox box = new VBox(12, h, sub, new Separator(), hint, grid, new Separator(), save);
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
+    }
+
+    private ComboBox<Book> suggestCombo(List<Book> source) {
+        ObservableList<Book> base = FXCollections.observableArrayList(source);
+
+        FilteredList<Book> filtered = new FilteredList<>(base, ignoreB -> true);
+
+        ComboBox<Book> cb = new ComboBox<>(filtered);
+        cb.setMaxWidth(Double.MAX_VALUE);
+        cb.setEditable(true);
+        cb.getEditor().setPromptText("Cerca per titolo o ID…");
+
+        cb.setConverter(new StringConverter<>() {
+            @Override public String toString(Book b) {
+                return (b == null) ? "" : (b.getTitolo() == null ? "" : b.getTitolo());
+            }
+            @Override public Book fromString(String s) {
+                // NON creare Book da testo: serve solo il filtro
+                return cb.getValue();
+            }
+        });
+
+        cb.setCellFactory(ignoreList -> new ListCell<>() {
+            @Override protected void updateItem(Book item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) { setText(null); return; }
+                String title = item.getTitolo() == null ? "" : item.getTitolo();
+                setText(title + "  (ID " + item.getId() + ")");
+            }
+        });
+
+        cb.setButtonCell(new ListCell<>() {
+            @Override protected void updateItem(Book item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText("");
+                else setText(item.getTitolo() == null ? "" : item.getTitolo());
+            }
+        });
+
+        // filtro live mentre scrivi (senza mai resettare items -> selezione funziona SEMPRE)
+        cb.getEditor().textProperty().addListener((ignoreObs, ignoreOld, txt) -> {
+            String q = (txt == null) ? "" : txt.trim().toLowerCase();
+
+            // se l’utente ha selezionato un valore, non ricalcolare mentre il testo è identico al selezionato
+            Book sel = cb.getValue();
+            if (sel != null) {
+                String selTxt = (sel.getTitolo() == null ? "" : sel.getTitolo()).trim().toLowerCase();
+                if (q.equals(selTxt)) return;
+            }
+
+            if (q.isEmpty()) {
+                filtered.setPredicate(ignoreB -> true);
+            } else {
+                filtered.setPredicate(b -> {
+                    String title = (b.getTitolo() == null ? "" : b.getTitolo()).toLowerCase();
+                    String id = String.valueOf(b.getId());
+                    return title.contains(q) || id.contains(q);
+                });
+            }
+
+            if (!cb.isShowing()) cb.show();
+        });
+
+        return cb;
+    }
+
+
+
+
+    private static Spinner<Integer> spinner1to5() {
         Spinner<Integer> sp = new Spinner<>();
         sp.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 5, 3));
         sp.setEditable(false);
         return sp;
     }
 
-    private void setStatus(String s) {
-        if (lblStatus != null) lblStatus.setText(s);
+
+
+    // ---------------- Reserved / Auth ----------------
+
+    private void openReservedHome(Stage owner) {
+        String user = ensureLoggedIn(owner);
+        if (user == null) return;
+
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle("Area riservata");
+        d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        Label title = new Label("Area Riservata");
+        title.getStyleClass().add("title");
+        Label sub = new Label("Gestisci librerie, valutazioni, consigli e account");
+        sub.getStyleClass().add("subtitle");
+
+        Button btnLibs = new Button("Le mie librerie");
+        btnLibs.getStyleClass().add("primary");
+        btnLibs.setMaxWidth(Double.MAX_VALUE);
+        btnLibs.setOnAction(_ -> LibrariesWindow.open(authService, libraryService, libriRepo));
+
+        VBox box = getVBox(title, sub, btnLibs);
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
     }
 
-    private void showError(String msg) {
-        Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK);
-        a.showAndWait();
+    private VBox getVBox(Label title, Label sub, Button btnLibs) {
+        Button btnReviews = new Button("Le mie valutazioni");
+        btnReviews.setMaxWidth(Double.MAX_VALUE);
+        btnReviews.setOnAction(_ -> ReviewsWindow.open(authService, reviewService, libriRepo));
+
+        Button btnSug = new Button("I miei consigli");
+        btnSug.setMaxWidth(Double.MAX_VALUE);
+        btnSug.setOnAction(_ -> SuggestionsWindow.open(authService, suggestionService, libriRepo));
+
+        Button btnAcc = new Button("Account");
+        btnAcc.setMaxWidth(Double.MAX_VALUE);
+        btnAcc.setOnAction(_ -> UserProfileWindow.open(authService));
+
+        return new VBox(10, title, sub, new Separator(), btnLibs, btnReviews, btnSug, btnAcc);
     }
 
-    private void showFatal(String msg) {
-        Alert a = new Alert(Alert.AlertType.ERROR, msg, ButtonType.CLOSE);
-        a.showAndWait();
+    private void openLogin(Stage owner) {
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle("Login");
+        d.getDialogPane().getButtonTypes().addAll(ButtonType.CLOSE);
+
+        TextField user = new TextField();
+        user.setPromptText("Username");
+
+        PasswordManager pr = new PasswordManager("Password");
+
+        Button btn = new Button("Accedi");
+        btn.getStyleClass().add("primary");
+        btn.setMaxWidth(Double.MAX_VALUE);
+
+        btn.setOnAction(_ -> {
+            try {
+                boolean ok = authService.login(safe(user.getText()), pr.getText());
+                if (!ok) {
+                    FxUtil.error(owner, "Login fallito", "Credenziali errate.");
+                    return;
+                }
+                refreshUserUi();
+                FxUtil.toast(owner.getScene(), "Benvenuto, " + authService.getCurrentUserid());
+                d.close();
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Errore", ex.getMessage());
+            }
+        });
+
+        VBox box = new VBox(10,
+                label("Username"), user,
+                label("Password"), pr.getNode(),
+                new Separator(),
+                btn
+        );
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
     }
 
-    public static void main(String[] args) {
-        launch(args);
+    private void openRegister(Stage owner) {
+        Dialog<Void> d = new Dialog<>();
+        d.initOwner(owner);
+        d.setTitle("Registrazione");
+        d.getDialogPane().getButtonTypes().addAll(ButtonType.CLOSE);
+
+        TextField nome = new TextField(); nome.setPromptText("Nome");
+        TextField cognome = new TextField(); cognome.setPromptText("Cognome");
+        TextField cf = new TextField(); cf.setPromptText("Codice fiscale (16 caratteri)");
+        TextField email = new TextField(); email.setPromptText("email@dominio.it");
+        TextField username = new TextField(); username.setPromptText("Username (5-20)");
+
+        PasswordManager pw = new PasswordManager("Password (min 8, lettere+numeri)");
+        PasswordManager pw2 = new PasswordManager("Ripeti password");
+
+        Button btn = new Button("Crea account e accedi");
+        btn.getStyleClass().add("primary");
+        btn.setMaxWidth(Double.MAX_VALUE);
+
+        btn.setOnAction(_ -> {
+            try {
+                String n = safe(nome.getText());
+                String c = safe(cognome.getText());
+                String codice = safe(cf.getText());
+                String em = safe(email.getText());
+                String u = safe(username.getText());
+                String p1 = pw.getText();
+                String p2 = pw2.getText();
+
+                if (n.isEmpty() || c.isEmpty() || codice.isEmpty() || em.isEmpty() || u.isEmpty() || p1.isEmpty() || p2.isEmpty())
+                    throw new IllegalArgumentException("Tutti i campi sono obbligatori.");
+                if (u.length() < 5 || u.length() > 20)
+                    throw new IllegalArgumentException("Username deve essere tra 5 e 20 caratteri.");
+                if (!CF_RX.matcher(codice).matches())
+                    throw new IllegalArgumentException("Codice fiscale non valido (attesi 16 caratteri alfanumerici).");
+                if (!EMAIL_RX.matcher(em).matches())
+                    throw new IllegalArgumentException("Email non valida.");
+                if (!PasswordManager.isStrongPassword(p1))
+                    throw new IllegalArgumentException("Password troppo debole (min 8, almeno una lettera e un numero).");
+                if (!Objects.equals(p1, p2))
+                    throw new IllegalArgumentException("Le password non corrispondono.");
+
+                String hash = AuthService.sha256(p1);
+
+                boolean okReg = authService.registrazione(new User(u, hash, n, c, codice, em));
+                if (!okReg) throw new IllegalStateException("Registrazione fallita: username già esistente?");
+
+                boolean okLogin = authService.login(u, p1);
+                if (!okLogin) throw new IllegalStateException("Account creato, ma login automatico fallito.");
+
+                refreshUserUi();
+                FxUtil.toast(owner.getScene(), "Account creato. Benvenuto, " + u);
+                d.close();
+
+                openReservedHome(owner);
+
+            } catch (Exception ex) {
+                FxUtil.error(owner, "Registrazione non valida", ex.getMessage());
+            }
+        });
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+
+        int r = 0;
+        grid.add(label("Nome"), 0, r); grid.add(nome, 1, r++);
+        grid.add(label("Cognome"), 0, r); grid.add(cognome, 1, r++);
+        grid.add(label("Codice fiscale"), 0, r); grid.add(cf, 1, r++);
+        grid.add(label("Email"), 0, r); grid.add(email, 1, r++);
+        grid.add(label("Username"), 0, r); grid.add(username, 1, r++);
+        grid.add(label("Password"), 0, r); grid.add(pw.getNode(), 1, r++);
+        grid.add(label("Ripeti password"), 0, r); grid.add(pw2.getNode(), 1, ++r);
+
+        ColumnConstraints c1 = new ColumnConstraints();
+        c1.setMinWidth(160);
+        ColumnConstraints c2 = new ColumnConstraints();
+        c2.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(c1, c2);
+
+        VBox box = new VBox(12,
+                labelMuted("Dopo la registrazione verrai loggato automaticamente ed entrerai nell’area riservata."),
+                grid,
+                new Separator(),
+                btn
+        );
+        box.getStyleClass().add("card");
+        box.setPadding(new Insets(14));
+
+        d.getDialogPane().setContent(box);
+        d.showAndWait();
     }
+
+    private String ensureLoggedIn(Stage owner) {
+        if (authService.getCurrentUserid() != null) return authService.getCurrentUserid();
+        FxUtil.error(owner, "Accesso richiesto", "Devi effettuare il login per accedere a questa funzione.");
+        return null;
+    }
+
+    // ---------------- Helpers ----------------
+
+    private static String safe(String s) { return s == null ? "" : s.trim(); }
+    private static String nvl(String s, String def) { return (s == null || s.isBlank()) ? def : s; }
+
+    private static Label label(String text) {
+        Label l = new Label(text);
+        l.getStyleClass().add("muted");
+        return l;
+    }
+
+    private static Label labelMuted(String text) {
+        Label l = new Label(text);
+        l.getStyleClass().add("muted");
+        l.setWrapText(true);
+        return l;
+    }
+
+    private static HBox headerRow(Label left, Node right) {
+        HBox row = new HBox(10, left, new Pane(), right);
+        HBox.setHgrow(row.getChildren().get(1), Priority.ALWAYS);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
 }
