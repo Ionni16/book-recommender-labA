@@ -24,26 +24,29 @@ Il progetto è stato realizzato come attività di laboratorio universitario.
 ---
 
 ## Tecnologie utilizzate
-- Java 23
-- JavaFX 25
+- Java 17
+- JavaFX 17
 - IntelliJ IDEA
-- Persistenza tramite file di testo (`.dati`)
+- Persistenza tramite file di testo (`Libri.dati`)
 
 ---
 
 ## Avvio del progetto
 1. Importare il progetto in **IntelliJ IDEA**
-2. Assicurarsi di avere **Java 23** installato
-3. Configurare il **JavaFX SDK (versione 25)** nel progetto
+2. Assicurarsi di avere **Java 17** installato
+3. Configurare il **JavaFX SDK nel progetto
 4. Avviare la classe `Main` oppure `BookRecommenderFX`
 
 ---
 
 ## Struttura del progetto
-- `ui` → finestre e componenti JavaFX
+- `model` → classi del dominio (Book, User, Library, Review, Suggestion, ecc.)
+- `repo` → accesso e gestione dei file dati
 - `service` → logica applicativa
-- `repository` → accesso e gestione dei file dati
+- `ui` → finestre e componenti JavaFX
 - `util` → classi di utilità e supporto
+- `data` → file `.dati` usati per la persistenza
+- `docs` → documentazione e risorse (manuali, screenshot, ecc.)
 
 ---
 
