@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="docs/logoInsubria.svg" width="200" alt="Logo Università">
+</p>
+
+
 # Book Recommender
 
 Applicazione desktop sviluppata in JavaFX per la gestione di librerie, libri,
