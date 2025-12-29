@@ -106,7 +106,7 @@ public final class FxUtil {
         stack.getChildren().add(chip);
 
         PauseTransition pt = new PauseTransition(Duration.seconds(2.2));
-        pt.setOnFinished(_ -> stack.getChildren().remove(chip));
+        pt.setOnFinished(e -> stack.getChildren().remove(chip));
         pt.playFromStart();
     }
 
@@ -124,11 +124,11 @@ public final class FxUtil {
         Button btnDelete = new Button(deleteText);
         btnDelete.getStyleClass().add("danger");
         btnDelete.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
-        btnDelete.setOnAction(_ -> onDelete.run());
+        btnDelete.setOnAction(e -> onDelete.run());
 
         Button btnReload = new Button(reloadText);
         btnReload.getStyleClass().add("ghost");
-        btnReload.setOnAction(_ -> onReload.run());
+        btnReload.setOnAction(e -> onReload.run());
 
         HBox actions = new HBox(10, btnReload, btnDelete);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -148,7 +148,7 @@ public final class FxUtil {
 
         Button close = new Button("Chiudi");
         close.getStyleClass().add("ghost");
-        close.setOnAction(_ -> close.getScene().getWindow().hide());
+        close.setOnAction(e -> close.getScene().getWindow().hide());
 
         HBox bar = new HBox(10, hint, new Pane(), close);
         HBox.setHgrow(bar.getChildren().get(1), Priority.ALWAYS);

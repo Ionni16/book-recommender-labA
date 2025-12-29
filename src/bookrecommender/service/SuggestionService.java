@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * Dove:
  * <ul>
  *     <li><code>userid</code> è l'identificatore dell'utente;</li>
- *     <li><code>bookId</code> è l'identificatore del libro “base” a cui si
+ *     <li><code>bookId</code> è l'identificatore del libro "base" a cui si
  *         riferiscono i suggerimenti;</li>
  *     <li><code>idSug1,idSug2,...</code> è la lista di ID dei libri suggeriti,
  *         separati da virgole.</li>

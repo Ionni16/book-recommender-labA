@@ -137,7 +137,7 @@ public class UserProfileWindow extends Stage {
 
         Button saveEmail = new Button("Aggiorna Email");
         saveEmail.getStyleClass().add("primary");
-        saveEmail.setOnAction(_ -> {
+        saveEmail.setOnAction(e -> {
             try {
                 String em = safe(email.getText());
                 if (!EMAIL_RX.matcher(em).matches())
@@ -180,7 +180,7 @@ public class UserProfileWindow extends Stage {
 
         Button savePw = new Button("Cambia Password");
         savePw.getStyleClass().add("primary");
-        savePw.setOnAction(_ -> {
+        savePw.setOnAction(e -> {
             try {
                 String a = pw1.getText();
                 String b = pw2.getText();
@@ -218,7 +218,7 @@ public class UserProfileWindow extends Stage {
 
         Button deleteAcc = new Button("Elimina account");
         deleteAcc.getStyleClass().add("danger");
-        deleteAcc.setOnAction(_ -> {
+        deleteAcc.setOnAction(e -> {
             if (!FxUtil.confirm(this, "Conferma", "Eliminare definitivamente l'account? Operazione irreversibile."))
                 return;
             try {
