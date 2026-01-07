@@ -183,6 +183,8 @@ public class BookRecommenderFX extends Application {
         stage.setTitle("Book Recommender");
         stage.setScene(scene);
         stage.show();
+        loadInitialResults();
+
 
         refreshUserUi();
         lblStatus.setText("Dataset caricato: " + libriRepo.size() + " libri");
@@ -203,21 +205,21 @@ public class BookRecommenderFX extends Application {
 
         btnLogin = new Button("Accedi");
         btnLogin.getStyleClass().add("primary");
-        btnLogin.setOnAction(_ -> openLogin(owner));
+        btnLogin.setOnAction(e -> openLogin(owner));
 
         btnRegister = new Button("Registrati");
-        btnRegister.setOnAction(_ -> openRegister(owner));
+        btnRegister.setOnAction(e -> openRegister(owner));
 
         btnLogout = new Button("Logout");
         btnLogout.getStyleClass().add("ghost");
-        btnLogout.setOnAction(_ -> {
+        btnLogout.setOnAction(e -> {
             authService.logout();
             refreshUserUi();
             FxUtil.toast(owner.getScene(), "Logout effettuato");
         });
 
         Button btnArea = new Button("Area riservata");
-        btnArea.setOnAction(_ -> openReservedHome(owner));
+        btnArea.setOnAction(e -> openReservedHome(owner));
 
         HBox right = new HBox(10, lblUserBadge, btnArea, btnLogin, btnRegister, btnLogout);
         right.setAlignment(Pos.CENTER_RIGHT);
@@ -320,12 +322,12 @@ public class BookRecommenderFX extends Application {
         Button btnSearch = new Button("Cerca");
         btnSearch.getStyleClass().add("primary");
         btnSearch.setMaxWidth(Double.MAX_VALUE);
-        btnSearch.setOnAction(_ -> doSearch(owner));
+        btnSearch.setOnAction(e -> doSearch(owner));
 
         Button btnClear = new Button("Reset");
         btnClear.getStyleClass().add("ghost");
         btnClear.setMaxWidth(Double.MAX_VALUE);
-        btnClear.setOnAction(_ -> {
+        btnClear.setOnAction(e -> {
             tfTitle.clear();
             tfAuthor.clear();
             ckOnlyMyLibraries.setSelected(false);
@@ -386,7 +388,7 @@ public class BookRecommenderFX extends Application {
 
         tbl = new TableView<>(data);
 
-        // più “web”: niente tagli strani, scroll se serve
+        // più "web": niente tagli strani, scroll se serve
         tbl.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         tbl.setPlaceholder(new Label("Esegui una ricerca per visualizzare risultati."));
 
@@ -441,7 +443,7 @@ public class BookRecommenderFX extends Application {
 
         Button btnRefresh = new Button("Ricarica (F5)");
         btnRefresh.getStyleClass().add("ghost");
-        btnRefresh.setOnAction(_ -> refresh(owner));
+        btnRefresh.setOnAction(e -> refresh(owner));
 
         HBox actions = new HBox(10, btnRefresh);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -490,7 +492,7 @@ public class BookRecommenderFX extends Application {
         btnAdd.getStyleClass().add("primary");
         btnAdd.setMaxWidth(Double.MAX_VALUE);
 
-        btnCreate.setOnAction(_ -> {
+        btnCreate.setOnAction(e -> {
             String name = tfNew.getText() == null ? "" : tfNew.getText().trim();
             if (name.length() < 5) {
                 FxUtil.error(owner, "Nome non valido", "Il nome deve avere almeno 5 caratteri.");
@@ -511,7 +513,7 @@ public class BookRecommenderFX extends Application {
             }
         });
 
-        btnAdd.setOnAction(_ -> {
+        btnAdd.setOnAction(e -> {
             Library sel = cb.getValue();
             if (sel == null) {
                 FxUtil.error(owner, "Selezione mancante", "Seleziona una libreria.");
@@ -634,7 +636,7 @@ public class BookRecommenderFX extends Application {
         Button btnAddToLibrary = new Button("Aggiungi alla mia libreria");
         btnAddToLibrary.getStyleClass().add("primary");
         btnAddToLibrary.setMaxWidth(Double.MAX_VALUE);
-        btnAddToLibrary.setOnAction(_ -> {
+        btnAddToLibrary.setOnAction(e -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openAddToLibraryDialog(owner, selectedBook);
@@ -644,7 +646,7 @@ public class BookRecommenderFX extends Application {
         btnRateThis = new Button("Valuta questo libro");
         btnRateThis.getStyleClass().add("ghost");
         btnRateThis.setMaxWidth(Double.MAX_VALUE);
-        btnRateThis.setOnAction(_ -> {
+        btnRateThis.setOnAction(e -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openReviewEditor(owner, selectedBook);
@@ -653,7 +655,7 @@ public class BookRecommenderFX extends Application {
         btnSuggestThis = new Button("Consiglia libri");
         btnSuggestThis.getStyleClass().add("ghost");
         btnSuggestThis.setMaxWidth(Double.MAX_VALUE);
-        btnSuggestThis.setOnAction(_ -> {
+        btnSuggestThis.setOnAction(e -> {
             if (selectedBook == null) return;
             if (ensureLoggedIn(owner) == null) return;
             openSuggestionEditor(owner, selectedBook);
@@ -663,7 +665,7 @@ public class BookRecommenderFX extends Application {
         Button btnOpenReviewList = new Button("Le mie valutazioni…");
         btnOpenReviewList.getStyleClass().add("ghost");
         btnOpenReviewList.setMaxWidth(Double.MAX_VALUE);
-        btnOpenReviewList.setOnAction(_ -> {
+        btnOpenReviewList.setOnAction(e -> {
             if (ensureLoggedIn(owner) == null) return;
             ReviewsWindow.open(authService, reviewService, libriRepo);
         });
@@ -671,7 +673,7 @@ public class BookRecommenderFX extends Application {
         Button btnOpenSugList = new Button("I miei consigli…");
         btnOpenSugList.getStyleClass().add("ghost");
         btnOpenSugList.setMaxWidth(Double.MAX_VALUE);
-        btnOpenSugList.setOnAction(_ -> {
+        btnOpenSugList.setOnAction(e -> {
             if (ensureLoggedIn(owner) == null) return;
             SuggestionsWindow.open(authService, suggestionService, libriRepo);
         });
@@ -802,6 +804,25 @@ public class BookRecommenderFX extends Application {
         }
     }
 
+    private void loadInitialResults() {
+        int limit = spLimit.getValue(); // usa lo stesso limite della ricerca
+
+        List<Book> allBooks = libriRepo.all();
+
+        List<Book> initial = allBooks.stream()
+                .limit(limit)
+                .toList();
+
+        data.setAll(initial);
+        lblStatus.setText("Risultati: " + initial.size());
+
+        clearDetail();
+        if (!initial.isEmpty()) {
+            tbl.getSelectionModel().select(0);
+        }
+    }
+
+
     private void refresh(Stage owner) {
         try {
             libriRepo.load();
@@ -870,7 +891,7 @@ public class BookRecommenderFX extends Application {
                     Button link = new Button(sb.getTitolo() + "  (" + count + ")");
                     link.getStyleClass().add("ghost");
                     link.setMaxWidth(Double.MAX_VALUE);
-                    link.setOnAction(_ -> {
+                    link.setOnAction(e -> {
                         Optional<Book> match = data.stream().filter(x -> x.getId() == sb.getId()).findFirst();
                         match.ifPresentOrElse(
                                 m -> tbl.getSelectionModel().select(m),
@@ -976,7 +997,7 @@ public class BookRecommenderFX extends Application {
         save.getStyleClass().add("primary");
         save.setMaxWidth(Double.MAX_VALUE);
 
-        save.setOnAction(_ -> {
+        save.setOnAction(e -> {
             try {
                 String comm = comment.getText() == null ? "" : comment.getText().trim();
                 if (comm.length() > 256) throw new IllegalArgumentException("Commento troppo lungo (max 256).");
@@ -1092,7 +1113,7 @@ public class BookRecommenderFX extends Application {
             save.setDisable(!any);
         };
 
-        // anti-duplicati “vero”
+        // anti-duplicati "vero"
         Runnable enforceNoDuplicates = () -> {
             Book b1 = c1.getValue();
             Book b2 = c2.getValue();
@@ -1109,7 +1130,7 @@ public class BookRecommenderFX extends Application {
         c2.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
         c3.valueProperty().addListener((ignoreObs, ignoreOld, ignoreN) -> enforceNoDuplicates.run());
 
-        save.setOnAction(_ -> {
+        save.setOnAction(e -> {
             try {
                 LinkedHashSet<Integer> ids = new LinkedHashSet<>();
                 if (c1.getValue() != null) ids.add(c1.getValue().getId());
@@ -1267,7 +1288,7 @@ public class BookRecommenderFX extends Application {
         Button btnLibs = new Button("Le mie librerie");
         btnLibs.getStyleClass().add("primary");
         btnLibs.setMaxWidth(Double.MAX_VALUE);
-        btnLibs.setOnAction(_ -> LibrariesWindow.open(authService, libraryService, libriRepo));
+        btnLibs.setOnAction(e -> LibrariesWindow.open(authService, libraryService, libriRepo));
 
         VBox box = getVBox(title, sub, btnLibs);
         box.getStyleClass().add("card");
@@ -1280,15 +1301,15 @@ public class BookRecommenderFX extends Application {
     private VBox getVBox(Label title, Label sub, Button btnLibs) {
         Button btnReviews = new Button("Le mie valutazioni");
         btnReviews.setMaxWidth(Double.MAX_VALUE);
-        btnReviews.setOnAction(_ -> ReviewsWindow.open(authService, reviewService, libriRepo));
+        btnReviews.setOnAction(e -> ReviewsWindow.open(authService, reviewService, libriRepo));
 
         Button btnSug = new Button("I miei consigli");
         btnSug.setMaxWidth(Double.MAX_VALUE);
-        btnSug.setOnAction(_ -> SuggestionsWindow.open(authService, suggestionService, libriRepo));
+        btnSug.setOnAction(e -> SuggestionsWindow.open(authService, suggestionService, libriRepo));
 
         Button btnAcc = new Button("Account");
         btnAcc.setMaxWidth(Double.MAX_VALUE);
-        btnAcc.setOnAction(_ -> UserProfileWindow.open(authService));
+        btnAcc.setOnAction(e -> UserProfileWindow.open(authService));
 
         return new VBox(10, title, sub, new Separator(), btnLibs, btnReviews, btnSug, btnAcc);
     }
@@ -1308,7 +1329,7 @@ public class BookRecommenderFX extends Application {
         btn.getStyleClass().add("primary");
         btn.setMaxWidth(Double.MAX_VALUE);
 
-        btn.setOnAction(_ -> {
+        btn.setOnAction(e -> {
             try {
                 boolean ok = authService.login(safe(user.getText()), pr.getText());
                 if (!ok) {
@@ -1355,7 +1376,7 @@ public class BookRecommenderFX extends Application {
         btn.getStyleClass().add("primary");
         btn.setMaxWidth(Double.MAX_VALUE);
 
-        btn.setOnAction(_ -> {
+        btn.setOnAction(e -> {
             try {
                 String n = safe(nome.getText());
                 String c = safe(cognome.getText());

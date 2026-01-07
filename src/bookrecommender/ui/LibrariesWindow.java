@@ -137,15 +137,15 @@ public class LibrariesWindow extends Stage {
 
         Button btnNew = new Button("Crea libreria…");
         btnNew.getStyleClass().add("primary");
-        btnNew.setOnAction(_ -> createNewLibrary());
+        btnNew.setOnAction(e -> createNewLibrary());
 
         Button btnRename = new Button("Rinomina…");
-        btnRename.setOnAction(_ -> renameLibrary());
+        btnRename.setOnAction(e -> renameLibrary());
         btnRename.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
         Button btnDelete = new Button("Elimina");
         btnDelete.getStyleClass().add("danger");
-        btnDelete.setOnAction(_ -> deleteLibrary());
+        btnDelete.setOnAction(e -> deleteLibrary());
         btnDelete.disableProperty().bind(tblLibs.getSelectionModel().selectedItemProperty().isNull());
 
         HBox libActions = new HBox(10, btnNew, btnRename, btnDelete);
@@ -177,7 +177,7 @@ public class LibrariesWindow extends Stage {
 
         Button btnRemove = new Button("Rimuovi libro");
         btnRemove.getStyleClass().add("danger");
-        btnRemove.setOnAction(_ -> removeBookFromLibrary());
+        btnRemove.setOnAction(e -> removeBookFromLibrary());
         btnRemove.disableProperty().bind(
                 tblBooks.getSelectionModel().selectedItemProperty().isNull()
                         .or(tblLibs.getSelectionModel().selectedItemProperty().isNull())

@@ -51,7 +51,7 @@ public class PasswordManager {
         eye.getStyleClass().add("icon");
         eye.setFocusTraversable(false);
 
-        eye.setOnAction(_ -> {
+        eye.setOnAction(e -> {
             boolean showing = tf.isVisible();
             if (showing) {
                 tf.setVisible(false);
