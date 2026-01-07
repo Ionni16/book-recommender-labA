@@ -1,3 +1,15 @@
+/*
+ * Nome: Ionut
+ * Cognome: Puiu
+ * Matricola: 758296
+ * Sede: VA
+ *
+ * Nome: Matteo
+ * Cognome: Ferrario
+ * Matricola: 756147
+ * Sede: VA
+ */
+
 package bookrecommender.service;
 
 import bookrecommender.model.Suggestion;
@@ -30,7 +42,7 @@ import java.util.stream.Collectors;
  * Il file <code>Librerie.dati</code> viene utilizzato per verificare che
  * l'utente possieda realmente i libri che intende suggerire.
  *
- * @author ...
+ * @author Matteo Ferrario
  * @version 1.0
  * @see bookrecommender.model.Suggestion
  */

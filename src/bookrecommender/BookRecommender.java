@@ -1,9 +1,23 @@
+/*
+ * Nome: Ionut
+ * Cognome: Puiu
+ * Matricola: 758296
+ * Sede: VA
+ *
+ * Nome: Matteo
+ * Cognome: Ferrario
+ * Matricola: 756147
+ * Sede: VA
+ */
+
 package bookrecommender;
 
-import bookrecommender.ui.PasswordManager;
 import bookrecommender.model.*;
 import bookrecommender.repo.LibriRepository;
 import bookrecommender.service.*;
+import bookrecommender.ui.BookRecommenderFX;
+
+import javafx.application.Application;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -11,34 +25,71 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Applicazione console <code>BookRecommender</code> (Lab A).
+ * Classe principale dell'applicazione <b>Book Recommender</b> (Lab A).
  * <p>
- * Fornisce un'interfaccia testuale per:
+ * La classe funge da <i>entry point</i> del progetto (come richiesto dalle specifiche)
+ * e consente di avviare l'applicazione in due modalità:
+ * </p>
  * <ul>
- *     <li>Ricercare libri per titolo, autore, autore+anno;</li>
- *     <li>Registrare nuovi utenti e gestire il login/logout;</li>
- *     <li>Creare/aggiornare librerie personali di libri;</li>
- *     <li>Inserire valutazioni sui libri;</li>
- *     <li>Inserire suggerimenti di libri correlati;</li>
- *     <li>Visualizzare i dettagli aggregati di un libro
- *         (statistiche su valutazioni e suggerimenti).</li>
+ *   <li><b>GUI (JavaFX)</b>: avvio di default senza argomenti.</li>
+ *   <li><b>CLI (console)</b>: avvio passando l'argomento {@code --cli}.</li>
  * </ul>
- * I dati sono letti e scritti da/verso file <code>.dati</code> nella cartella
- * <code>data</code> tramite i repository e i servizi del package
- * <code>bookrecommender.service</code>.
  *
- * @author Ionut Puiu -753296- Sede: VA, Matteo Ferrario -756147- Sede: VA, Hamdi Kebeli -- Sede: CO.
+ * <h2>Persistenza dati</h2>
+ * <p>
+ * I dati sono letti/scritti nella cartella {@code data} tramite file {@code .dati}:
+ * {@code Libri.dati}, {@code UtentiRegistrati.dati}, {@code Librerie.dati},
+ * {@code ValutazioniLibri.dati}, {@code ConsigliLibri.dati}.
+ * </p>
+ *
+ * @author Ionut Puiu, Matteo Ferrario
  * @version 1.0
  */
 public class BookRecommender {
 
     /**
-     * Punto di ingresso dell'applicazione console.
+     * Metodo principale dell'applicazione.
      * <p>
-     * Inizializza il repository dei libri e i vari servizi di dominio,
-     * quindi mostra un menù testuale che rimane attivo finché l'utente
-     * non sceglie l'opzione di uscita.
+     * Se tra gli argomenti è presente {@code --cli}, avvia la modalità console.
+     * In caso contrario avvia l'interfaccia grafica JavaFX.
+     * </p>
      *
+     * @param args argomenti da riga di comando; usare {@code --cli} per forzare la modalità testuale
+     */
+    public static void main(String[] args) {
+        if (hasArg(args, "--cli")) {
+            runCli();
+            return;
+        }
+        Application.launch(BookRecommenderFX.class, args);
+    }
+
+    /**
+     * Verifica se tra gli argomenti è presente un flag.
+     *
+     * @param args array di argomenti; può essere {@code null}
+     * @param flag flag da cercare (es. {@code "--cli"})
+     * @return {@code true} se il flag è presente (case-insensitive), {@code false} altrimenti
+     */
+    private static boolean hasArg(String[] args, String flag) {
+        if (args == null) return false;
+        for (String a : args) {
+            if (flag.equalsIgnoreCase(a)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Avvia la modalità testuale (CLI) dell'applicazione.
+     * <p>
+     * Esegue il caricamento del repository dei libri da {@code data/Libri.dati},
+     * inizializza i servizi applicativi e mostra un menu ciclico finché l'utente
+     * non seleziona l'uscita.
+     * </p>
+     * <p>
+     * In caso di errore nel caricamento del repository libri, stampa un messaggio su
+     * {@code stderr} e termina la CLI.
+     * </p>
      */
     public static void runCli() {
         Scanner in = new Scanner(System.in);
@@ -52,6 +103,7 @@ public class BookRecommender {
             System.err.println("Errore nel caricamento di Libri.dati: " + e.getMessage());
             return;
         }
+
         System.out.println("=== Book Recommender (Lab A) ===");
         System.out.println("Libri caricati: " + libriRepo.size());
 
@@ -59,9 +111,18 @@ public class BookRecommender {
         SearchService search = new SearchService(libriRepo);
         AuthService auth = new AuthService(dataDir.resolve("UtentiRegistrati.dati"));
         LibraryService libraryService = new LibraryService(dataDir.resolve("Librerie.dati"));
-        ReviewService reviewService = new ReviewService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("Librerie.dati"));
-        SuggestionService suggestionService = new SuggestionService(dataDir.resolve("ConsigliLibri.dati"), dataDir.resolve("Librerie.dati"));
-        AggregationService agg = new AggregationService(dataDir.resolve("ValutazioniLibri.dati"), dataDir.resolve("ConsigliLibri.dati"));
+        ReviewService reviewService = new ReviewService(
+                dataDir.resolve("ValutazioniLibri.dati"),
+                dataDir.resolve("Librerie.dati")
+        );
+        SuggestionService suggestionService = new SuggestionService(
+                dataDir.resolve("ConsigliLibri.dati"),
+                dataDir.resolve("Librerie.dati")
+        );
+        AggregationService agg = new AggregationService(
+                dataDir.resolve("ValutazioniLibri.dati"),
+                dataDir.resolve("ConsigliLibri.dati")
+        );
 
         while (true) {
             System.out.println();
@@ -90,22 +151,52 @@ public class BookRecommender {
                 case "7": doReview(in, auth, reviewService); break;
                 case "8": doSuggest(in, auth, suggestionService); break;
                 case "9": doVisualizza(in, search, agg, libriRepo); break;
-                case "L": case "l": auth.logout(); System.out.println("Logout eseguito."); break;
-                case "0": return;
-                default: System.out.println("Scelta non valida.");
+                case "L":
+                case "l":
+                    auth.logout();
+                    System.out.println("Logout eseguito.");
+                    break;
+                case "0":
+                    return;
+                default:
+                    System.out.println("Scelta non valida.");
             }
         }
     }
 
     // === Cerca ===
+
+    /**
+     * Gestisce la ricerca dei libri per titolo (sottostringa, case-insensitive).
+     *
+     * @param in scanner per leggere l'input da console
+     * @param search servizio di ricerca sui libri
+     */
     private static void doSearchByTitle(Scanner in, SearchService search) {
         System.out.print("Titolo (sottostringa): ");
         printBooks(search.cercaLibroPerTitolo(in.nextLine()));
     }
+
+    /**
+     * Gestisce la ricerca dei libri per autore (sottostringa, case-insensitive).
+     *
+     * @param in scanner per leggere l'input da console
+     * @param search servizio di ricerca sui libri
+     */
     private static void doSearchByAuthor(Scanner in, SearchService search) {
         System.out.print("Autore (sottostringa): ");
         printBooks(search.cercaLibroPerAutore(in.nextLine()));
     }
+
+    /**
+     * Gestisce la ricerca dei libri per autore e anno.
+     * <p>
+     * Se l'anno inserito non è un intero valido, stampa un messaggio e annulla l'operazione.
+     * </p>
+     *
+     * @param in scanner per leggere l'input da console
+     * @param search servizio di ricerca sui libri
+     */
     private static void doSearchByAuthorYear(Scanner in, SearchService search) {
         System.out.print("Autore: ");
         String a = in.nextLine();
@@ -119,6 +210,24 @@ public class BookRecommender {
     }
 
     // === Registrazione/Login ===
+
+    /**
+     * Gestisce la procedura di registrazione di un nuovo utente.
+     * <p>
+     * Esegue controlli di validità su:
+     * </p>
+     * <ul>
+     *   <li>userid e password non vuoti</li>
+     *   <li>formato email tramite regex</li>
+     *   <li>robustezza password (min 8 caratteri, almeno una lettera e un numero)</li>
+     * </ul>
+     * <p>
+     * La password viene salvata come hash (SHA-256) tramite {@link AuthService#sha256(String)}.
+     * </p>
+     *
+     * @param in scanner per leggere l'input da console
+     * @param auth servizio di autenticazione/registrazione
+     */
     private static void doRegister(Scanner in, AuthService auth) {
         System.out.println("=== Registrazione ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();
@@ -136,7 +245,7 @@ public class BookRecommender {
             System.out.println("Email non valida.");
             return;
         }
-        if (!PasswordManager.isStrongPassword(pass)) {
+        if (!isStrongPassword(pass)) {
             System.out.println("Password troppo debole. Minimo 8 caratteri, con lettere e numeri.");
             return;
         }
@@ -153,7 +262,12 @@ public class BookRecommender {
         }
     }
 
-
+    /**
+     * Gestisce la procedura di login.
+     *
+     * @param in scanner per leggere l'input da console
+     * @param auth servizio di autenticazione
+     */
     private static void doLogin(Scanner in, AuthService auth) {
         System.out.println("=== Login ===");
         System.out.print("Userid: "); String userid = in.nextLine().trim();
@@ -167,6 +281,17 @@ public class BookRecommender {
     }
 
     // === Librerie ===
+
+    /**
+     * Gestisce creazione/aggiornamento delle librerie personali dell'utente loggato.
+     * <p>
+     * Se l'utente non è autenticato, l'operazione viene bloccata.
+     * </p>
+     *
+     * @param in scanner per leggere l'input da console
+     * @param auth servizio di autenticazione (per verificare l'utente corrente)
+     * @param libraryService servizio di gestione librerie
+     */
     private static void doLibrary(Scanner in, AuthService auth, LibraryService libraryService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
@@ -180,7 +305,6 @@ public class BookRecommender {
             System.out.print("Nome libreria da creare/aggiornare: ");
             String nome = in.nextLine().trim();
 
-            // Inserisci lista di idLibro separati da virgola
             System.out.print("Inserisci idLibro separati da virgola (es: 10,25,31): ");
             String line = in.nextLine().trim();
             Set<Integer> ids = parseIdSet(line);
@@ -195,6 +319,18 @@ public class BookRecommender {
     }
 
     // === Valutazioni ===
+
+    /**
+     * Gestisce l'inserimento di una valutazione per un libro da parte dell'utente loggato.
+     * <p>
+     * Richiede l'autenticazione. I punteggi devono essere compresi tra 1 e 5.
+     * Il voto finale viene calcolato tramite {@link Review#calcolaVotoFinale(int, int, int, int, int)}.
+     * </p>
+     *
+     * @param in scanner per leggere l'input da console
+     * @param auth servizio di autenticazione
+     * @param reviewService servizio di gestione valutazioni
+     */
     private static void doReview(Scanner in, AuthService auth, ReviewService reviewService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
@@ -224,6 +360,15 @@ public class BookRecommender {
     }
 
     // === Suggerimenti ===
+
+    /**
+     * Gestisce l'inserimento di suggerimenti (massimo 3) per un libro,
+     * da parte dell'utente loggato.
+     *
+     * @param in scanner per leggere l'input da console
+     * @param auth servizio di autenticazione
+     * @param suggestionService servizio di gestione suggerimenti
+     */
     private static void doSuggest(Scanner in, AuthService auth, SuggestionService suggestionService) {
         String me = auth.getCurrentUserid();
         if (me == null) { System.out.println("Devi fare login."); return; }
@@ -245,6 +390,20 @@ public class BookRecommender {
     }
 
     // === Visualizza Dettagli ===
+
+    /**
+     * Gestisce la visualizzazione dei dettagli di un libro:
+     * <ul>
+     *   <li>dati bibliografici dal repository libri</li>
+     *   <li>statistiche aggregate delle valutazioni</li>
+     *   <li>statistiche aggregate dei suggerimenti</li>
+     * </ul>
+     *
+     * @param in scanner per leggere l'input da console
+     * @param search servizio di ricerca
+     * @param agg servizio di aggregazione valutazioni/suggerimenti
+     * @param libriRepo repository libri
+     */
     private static void doVisualizza(Scanner in, SearchService search, AggregationService agg, LibriRepository libriRepo) {
         System.out.print("Cerca titolo per scegliere il libro: ");
         var results = search.cercaLibroPerTitolo(in.nextLine());
@@ -253,21 +412,23 @@ public class BookRecommender {
         System.out.print("Inserisci idLibro da visualizzare: ");
         try {
             int id = Integer.parseInt(in.nextLine().trim());
-            var opt = libriRepo.all().stream().filter(b -> b.getId()==id).findFirst();
+            var opt = libriRepo.all().stream().filter(b -> b.getId() == id).findFirst();
             if (opt.isEmpty()) { System.out.println("idLibro non trovato."); return; }
             Book b = opt.get();
+
             System.out.println("\n=== Dettagli Libro ===");
             System.out.println("[" + b.getId() + "] " + b.getTitolo());
             System.out.println("Autori: " + String.join(", ", b.getAutori()));
-            System.out.println("Anno: " + (b.getAnno()==null?"":b.getAnno()));
-            System.out.println("Editore: " + (b.getEditore()==null?"":b.getEditore()));
-            System.out.println("Categoria: " + (b.getCategoria()==null?"":b.getCategoria()));
+            System.out.println("Anno: " + (b.getAnno() == null ? "" : b.getAnno()));
+            System.out.println("Editore: " + (b.getEditore() == null ? "" : b.getEditore()));
+            System.out.println("Categoria: " + (b.getCategoria() == null ? "" : b.getCategoria()));
 
             var rs = agg.getReviewStats(b.getId());
             System.out.println("\n-- Valutazioni --");
             System.out.println("Numero valutazioni: " + rs.count);
             if (rs.count > 0) {
-                System.out.printf(Locale.ROOT, "Medie -> Stile: %.2f, Contenuto: %.2f, Gradevolezza: %.2f, Originalità: %.2f, Edizione: %.2f%n",
+                System.out.printf(Locale.ROOT,
+                        "Medie -> Stile: %.2f, Contenuto: %.2f, Gradevolezza: %.2f, Originalità: %.2f, Edizione: %.2f%n",
                         rs.mediaStile, rs.mediaContenuto, rs.mediaGradevolezza, rs.mediaOriginalita, rs.mediaEdizione);
                 System.out.println("Distribuzione voto finale: " + rs.distribuzioneVoti);
             }
@@ -288,6 +449,13 @@ public class BookRecommender {
     }
 
     // === Utils stampa e parsing ===
+
+    /**
+     * Stampa a console una lista di libri (massimo 20) nel formato:
+     * {@code [id] titolo (anno) | Autori: ...}
+     *
+     * @param results lista di risultati da stampare
+     */
     private static void printBooks(List<Book> results) {
         if (results.isEmpty()) { System.out.println("Nessun risultato."); return; }
         System.out.println("Trovati " + results.size() + " risultati:");
@@ -301,6 +469,14 @@ public class BookRecommender {
         }
         if (results.size() > 20) System.out.println("... (mostrati i primi 20)");
     }
+
+    /**
+     * Converte una stringa CSV di interi (separati da virgola) in un {@link Set}.
+     * Gli elementi non numerici vengono ignorati.
+     *
+     * @param csv stringa in input (es. {@code "10,25,31"})
+     * @return insieme (ordinato per inserimento) degli id presenti
+     */
     private static Set<Integer> parseIdSet(String csv) {
         Set<Integer> out = new LinkedHashSet<>();
         if (csv == null || csv.isBlank()) return out;
@@ -309,6 +485,14 @@ public class BookRecommender {
         }
         return out;
     }
+
+    /**
+     * Converte una stringa CSV di interi (separati da virgola) in una {@link List}.
+     * Gli elementi non numerici vengono ignorati.
+     *
+     * @param csv stringa in input (es. {@code "101,202,303"})
+     * @return lista degli id presenti (anche vuota)
+     */
     private static List<Integer> parseIdList(String csv) {
         List<Integer> out = new ArrayList<>();
         if (csv == null || csv.isBlank()) return out;
@@ -317,21 +501,43 @@ public class BookRecommender {
         }
         return out;
     }
+
+    /**
+     * Legge un intero da console e verifica che sia compreso tra 1 e 5.
+     *
+     * @param in scanner per leggere l'input
+     * @param prompt testo mostrato all'utente
+     * @return valore inserito (1..5)
+     * @throws NumberFormatException se il valore non è valido o fuori range
+     */
     private static int askInt(Scanner in, String prompt) {
         System.out.print(prompt);
-        try {
-            int x = Integer.parseInt(in.nextLine().trim());
-            if (x < 1 || x > 5) throw new NumberFormatException();
-            return x;
-        } catch (NumberFormatException e) {
-            System.out.println("Valore non valido. Annullato.");
-            throw e;
-        }
+        int x = Integer.parseInt(in.nextLine().trim());
+        if (x < 1 || x > 5) throw new NumberFormatException();
+        return x;
     }
 
+    /**
+     * Verifica robustezza minima della password:
+     * lunghezza >= 8, almeno una lettera e almeno una cifra.
+     *
+     * @param pass password in chiaro
+     * @return {@code true} se la password soddisfa i requisiti, {@code false} altrimenti
+     */
+    private static boolean isStrongPassword(String pass) {
+        if (pass == null) return false;
+        if (pass.length() < 8) return false;
+        boolean hasLetter = false, hasDigit = false;
+        for (char c : pass.toCharArray()) {
+            if (Character.isLetter(c)) hasLetter = true;
+            if (Character.isDigit(c)) hasDigit = true;
+        }
+        return hasLetter && hasDigit;
+    }
+
+    /**
+     * Pattern regex minimale per validazione email (non esaustiva).
+     */
     private static final Pattern EMAIL_RX =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
-
-
-
 }

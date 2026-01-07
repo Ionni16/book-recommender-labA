@@ -1,3 +1,15 @@
+/*
+ * Nome: Ionut
+ * Cognome: Puiu
+ * Matricola: 758296
+ * Sede: VA
+ *
+ * Nome: Matteo
+ * Cognome: Ferrario
+ * Matricola: 756147
+ * Sede: VA
+ */
+
 package bookrecommender.service;
 
 import bookrecommender.model.Book;
@@ -21,7 +33,7 @@ import java.util.stream.Collectors;
  * Tutte le ricerche sono case-insensitive e ignorano gli accenti grazie
  * a una normalizzazione preventiva delle stringhe.
  *
- * @author Hamdi Kebeli
+ * @author Matteo Ferrario
  * @version 1.0
  * @see bookrecommender.model.Book
  * @see bookrecommender.repo.LibriRepository

@@ -1,3 +1,15 @@
+/*
+ * Nome: Ionut
+ * Cognome: Puiu
+ * Matricola: 758296
+ * Sede: VA
+ *
+ * Nome: Matteo
+ * Cognome: Ferrario
+ * Matricola: 756147
+ * Sede: VA
+ */
+
 package bookrecommender.service;
 
 import bookrecommender.model.Review;
@@ -23,7 +35,7 @@ import java.util.stream.Collectors;
  * che l'utente abbia inserito il libro in almeno una delle proprie librerie
  * prima di poterlo valutare.
  *
- * @author Hamdi Kebeli
+ * @author Matteo Ferrario
  * @version 1.0
  * @see bookrecommender.model.Review
  */

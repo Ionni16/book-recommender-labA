@@ -1,3 +1,15 @@
+/*
+ * Nome: Ionut
+ * Cognome: Puiu
+ * Matricola: 758296
+ * Sede: VA
+ *
+ * Nome: Matteo
+ * Cognome: Ferrario
+ * Matricola: 756147
+ * Sede: VA
+ */
+
 package bookrecommender.service;
 
 import bookrecommender.model.User;
@@ -21,7 +33,7 @@ import java.util.*;
  * </pre>
  * La password non viene salvata in chiaro ma come hash SHA-256.
  *
- * @author Hamdi Kebeli
+ * @author Matteo Ferrario
  * @version 1.0
  * @see bookrecommender.model.User
  */
