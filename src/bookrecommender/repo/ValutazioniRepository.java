@@ -29,7 +29,7 @@ import java.util.*;
  * userId; idLibro; stile; contenuto; gradevolezza; originalita; edizione; votoFinale; commento
  * </pre>
  *
- * @author Tuo Nome Cognome
+ * @author Matteo Ferrario
  * @version 1.0
  * @see bookrecommender.model.Review
  */
